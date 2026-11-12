@@ -11,7 +11,9 @@ MoriBot 的产品目标不是做多平台聊天机器人网关，**不计划接�
 - 以 [MoriMobile](https://github.com/an-shi/MoriAI-mobile) 为唯一官方手机客户端
 - 内建 MoriMobile 安全网关：设备配对、设备令牌、WebSocket 上下行、设备撤销
 - MoriMobile 业务接口走 HTTPS JSON API，实时聊天走加密 WSS
-- 三类模型配置：主模型 / 语音模型 / 图片模型，支持 OpenAI 兼容接口
+- 三类模型配置：主模型 / 语音模型 / 图片模型
+- 兼容主流供应商：OpenAI、DeepSeek、通义千问、Kimi、智谱 GLM、豆包、SiliconFlow、OpenRouter、Groq、Mistral、xAI、Ollama 等 OpenAI 兼容端点
+- 原生适配 Anthropic Claude、Google Gemini、Azure OpenAI、ElevenLabs
 - 主模型通过工具调用语音与图片模型，在对话中生成语音和图片
 - SQLite 数据库与管理员账户
 - JWT 登录、密码哈希、登录限流、反向代理/TLS 支持
@@ -147,7 +149,7 @@ MoriMobile 官方仓库：[an-shi/MoriAI-mobile](https://github.com/an-shi/MoriA
 | 语音模型 | 把文本合成为语音 | `tts-1` |
 | 图片模型 | 根据提示词生成图片 | `gpt-image-1` |
 
-所有配置使用 OpenAI 兼容接口，需要填写 Base URL、API Key 和模型名称。API Key 使用安装密钥派生的 Fernet 加密存储，接口不会返回明文。
+所有配置使用 OpenAI 兼容接口或原生适配器。界面提供供应商预设，选择 OpenAI、DeepSeek、通义千问、Kimi、GLM、豆包、Gemini、Claude、Azure、ElevenLabs 等预设会自动填充接口地址与模型示例；也可以选择「自定义 / OpenAI 兼容」手动填写。API Key 使用安装密钥派生的 Fernet 加密存储，接口不会返回明文。
 
 主模型会通过 `generate_speech` 和 `generate_image` 两个工具调用默认语音/图片模型；实现位于 `moribot/core/provider/gateway.py`，后续对话服务直接消费 `ModelGateway.chat()` 即可。详细说明见 [docs/models.md](docs/models.md)。
 
@@ -247,6 +249,7 @@ uv run main.py --host 127.0.0.1 --port 8080 --data-dir ./my-data
 | GET | `/api/v1/system/info` | 是 | 首页运行状态 |
 | GET | `/api/v1/system/backup/export` | 是 | 下载完整数据备份 |
 | GET | `/api/v1/providers` | 是 | 列出三类模型配置 |
+| GET | `/api/v1/providers/catalog` | 是 | 获取支持的适配器与供应商预设 |
 | POST | `/api/v1/providers` | 是 | 创建模型配置 |
 | PATCH | `/api/v1/providers/{id}` | 是 | 更新模型配置（API Key 留空保持） |
 | DELETE | `/api/v1/providers/{id}` | 是 | 删除模型配置 |

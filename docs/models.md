@@ -8,21 +8,46 @@ MoriBot 把模型分成三个固定角色，配置保存在数据库 `model_prov
 | 语音模型 | `speech` | 把文本合成为语音 |
 | 图片模型 | `image` | 根据提示词生成图片 |
 
-三类模型都使用 **OpenAI 兼容接口**：
+三类模型都通过统一的配置界面管理。适配器分两层：
 
-- 主模型：`POST {base_url}/chat/completions`
-- 语音模型：`POST {base_url}/audio/speech`
-- 图片模型：`POST {base_url}/images/generations`
+1. **OpenAI 兼容适配器**：覆盖大多数厂商的兼容端点。
+2. **原生适配器**：协议差异较大的供应商单独实现。
 
-`base_url` 应填写接口根路径，例如：
+## 1. 兼容矩阵
 
-```text
-https://api.openai.com/v1
-https://your-oneapi.example.com/v1
-http://127.0.0.1:1234/v1     # LM Studio 等本地服务
-```
+| 适配器 | 覆盖范围 | 支持类别 |
+| --- | --- | --- |
+| `openai_compatible` | OpenAI、DeepSeek、通义千问、Kimi、智谱 GLM、MiniMax、豆包/火山方舟、SiliconFlow、OpenRouter、Groq、Mistral、xAI、Together、Perplexity、百度千帆、腾讯混元、讯飞星火、NVIDIA NIM、Cerebras、Ollama、LM Studio、任意自定义兼容网关 | chat / speech / image |
+| `azure_openai` | Azure OpenAI 部署 | chat / speech / image |
+| `anthropic` | Anthropic Claude Messages API | chat |
+| `google_gemini` | Gemini 对话模型与 Gemini 图片模型 | chat / image |
+| `elevenlabs` | ElevenLabs 文本转语音 | speech |
 
-## 1. 在控制台配置
+控制台提供供应商预设，选择预设会自动填充 Provider 类型、Base URL 和模型示例。也可以选择「自定义 / OpenAI 兼容」手动填写任意端点。
+
+### 1.1 常用 Base URL
+
+| 供应商 | Base URL |
+| --- | --- |
+| OpenAI | `https://api.openai.com/v1` |
+| DeepSeek | `https://api.deepseek.com/v1` |
+| 通义千问 / DashScope | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+| Moonshot / Kimi | `https://api.moonshot.cn/v1` |
+| 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` |
+| MiniMax | `https://api.minimax.chat/v1` |
+| 火山方舟 / 豆包 | `https://ark.cn-beijing.volces.com/api/v3` |
+| SiliconFlow | `https://api.siliconflow.cn/v1` |
+| OpenRouter | `https://openrouter.ai/api/v1` |
+| Groq | `https://api.groq.com/openai/v1` |
+| Mistral | `https://api.mistral.ai/v1` |
+| xAI | `https://api.x.ai/v1` |
+| 百度千帆 | `https://qianfan.baidubce.com/v2` |
+| 腾讯混元 | `https://api.hunyuan.cloud.tencent.com/v1` |
+| 讯飞星火 | `https://spark-api-open.xf-yun.com/v1` |
+| Ollama | `http://127.0.0.1:11434/v1` |
+| LM Studio | `http://127.0.0.1:1234/v1` |
+
+## 2. 配置步骤
 
 1. 登录后台，打开左侧「模型服务」。
 2. 在「主模型 / 语音模型 / 图片模型」中分别点击「添加模型」。
@@ -36,7 +61,7 @@ http://127.0.0.1:1234/v1     # LM Studio 等本地服务
 
 没有 API Key 的本地服务可以留空。API Key 使用安装密钥派生的 Fernet 加密后保存到数据库，API 响应只返回 `api_key_set` 和末尾提示，不返回明文。
 
-## 2. 主模型如何调用语音和图片
+## 3. 主模型如何调用语音和图片
 
 `ModelGateway` 把已配置的语音、图片默认模型暴露为主模型的工具：
 
@@ -70,12 +95,13 @@ reply = await core.model_gateway.chat(messages)
 
 工具只在对应默认模型存在时才会出现在主模型的 tools 列表中；没有配置语音/图片模型时，主模型只做普通对话。
 
-## 3. API
+## 4. API
 
 所有接口需要后台 JWT：
 
 ```http
 GET    /api/v1/providers
+GET    /api/v1/providers/catalog
 POST   /api/v1/providers
 PATCH  /api/v1/providers/{id}
 DELETE /api/v1/providers/{id}
@@ -103,7 +129,7 @@ curl -X POST http://127.0.0.1:6186/api/v1/providers \
 
 更新时把 `api_key` 留空或不传，会保留原密钥。
 
-## 4. 数据结构
+## 5. 数据结构
 
 `model_providers` 表：
 
@@ -122,9 +148,11 @@ curl -X POST http://127.0.0.1:6186/api/v1/providers \
 
 由于模型配置在数据库中，备份/迁移会自动携带，不需要额外操作。API Key 能否解密取决于 `config.json` 中的 JWT 密钥是否一起迁移；迁移时请完整导入备份。
 
-## 5. 当前限制
+## 6. 当前限制
 
-- 只实现了 OpenAI 兼容协议；Anthropic、Gemini 原生协议尚未接入。
+- 原生适配器当前覆盖 Anthropic、Gemini、Azure OpenAI、ElevenLabs；其余厂商通过 OpenAI 兼容端点接入。
+- 百度文心、腾讯混元、讯飞星火等原生签名协议未单独实现，请使用其 OpenAI 兼容入口或自建网关。
+- Gemini 目前支持 Gemini Image（`gemini-2.5-flash-image`），暂未接入 Imagen `:predict` 与 Gemini TTS。
 - 连通性测试会发起真实请求，可能产生少量费用。
 - 主模型的流式输出、自动重试和多轮 Agent 循环仍在后续计划中。
 - 图片/语音工具每轮返回最近一次结果；多张图片可在 `GeneratedImage` 列表中扩展。
