@@ -590,7 +590,7 @@ async function save(): Promise<void> {
               :placeholder="t('providers.dialog.groupIdPlaceholder')"
             />
           </div>
-          <p v-if="providerType === 'minimax'" class="field-hint">
+          <p v-if="providerType === 'minimax'" class="field-hint group-id-hint">
             {{ t('providers.dialog.groupIdHint') }}
           </p>
 
@@ -955,6 +955,10 @@ async function save(): Promise<void> {
 
 .field-hints .field-hint {
   margin: 0 0 4px;
+}
+
+.group-id-hint {
+  margin: 8px 0 16px;
 }
 
 .field-hint--warning {
