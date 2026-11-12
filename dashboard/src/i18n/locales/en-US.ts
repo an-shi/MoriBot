@@ -23,14 +23,14 @@ export default {
     titleLine1: 'Let your agents',
     titleLine2: 'grow naturally.',
     description:
-      'Connect models, platforms and plugins from one workspace for your AI assistant.',
+      'Connect models, MoriMobile and plugins from one workspace for your AI assistant.',
     pointModular: {
       title: 'Modular core',
-      desc: 'Platforms, models and pipelines stay decoupled',
+      desc: 'Models, pipelines and plugins stay decoupled',
     },
     pointPlatforms: {
-      title: 'Multi-platform',
-      desc: 'One event model for every chat platform',
+      title: 'MoriMobile companion',
+      desc: 'Realtime chat over WSS, business APIs over HTTPS',
     },
     pointPlugins: {
       title: 'Plugin extensions',
@@ -60,7 +60,7 @@ export default {
     home: 'Home',
     chat: 'Chat',
     providers: 'Models',
-    platforms: 'Platforms',
+    platforms: 'MoriMobile',
     plugins: 'Plugins',
     logs: 'Logs',
     settings: 'Settings',
@@ -69,7 +69,7 @@ export default {
     coreService: 'Core service',
     running: 'Running',
     connecting: 'Waiting',
-    platformCount: '{count} platform | {count} platforms',
+    mobileStatus: 'MoriMobile · {count} online',
     roleAdmin: 'Administrator',
     roleMember: 'Member',
     recentLogin: 'Last sign-in {time}',
@@ -93,7 +93,7 @@ export default {
     version: 'Version',
     uptime: 'Uptime',
     providers: 'Models',
-    platforms: 'Platforms',
+    mobileOnline: 'MoriMobile online',
     workspaceReady: 'WORKSPACE READY',
     readyTitle: 'Workspace ready',
     readyDescription:

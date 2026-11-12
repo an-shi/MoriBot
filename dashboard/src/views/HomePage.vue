@@ -96,8 +96,8 @@ async function exportData(): Promise<void> {
         <strong>{{ system.info?.providers ?? 0 }}</strong>
       </div>
       <div class="runtime-item">
-        <span class="runtime-label">{{ t('home.platforms') }}</span>
-        <strong>{{ system.info?.platforms ?? 0 }}</strong>
+        <span class="runtime-label">{{ t('home.mobileOnline') }}</span>
+        <strong>{{ system.info?.mobile_online ?? 0 }}</strong>
       </div>
     </section>
 

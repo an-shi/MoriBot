@@ -23,7 +23,7 @@ const navItems: NavItem[] = [
   { labelKey: 'nav.home', icon: 'mdi-view-dashboard-outline', to: '/', available: true },
   { labelKey: 'nav.chat', icon: 'mdi-message-text-outline', available: false },
   { labelKey: 'nav.providers', icon: 'mdi-brain', available: false },
-  { labelKey: 'nav.platforms', icon: 'mdi-lan-connect', available: false },
+  { labelKey: 'nav.platforms', icon: 'mdi-cellphone-link', available: false },
   { labelKey: 'nav.plugins', icon: 'mdi-puzzle-outline', available: false },
   { labelKey: 'nav.logs', icon: 'mdi-text-box-outline', available: false },
   { labelKey: 'nav.settings', icon: 'mdi-cog-outline', available: false },
@@ -58,10 +58,9 @@ const roleLabel = computed(() =>
 const pageTitle = computed(() => t(String(route.meta.titleKey || 'nav.home')))
 const version = computed(() => system.publicInfo?.version || APP_VERSION)
 const coreRunning = computed(() => Boolean(system.info?.running))
-const platformCountLabel = computed(() => {
-  const count = system.info?.platforms ?? 0
-  return t('layout.platformCount', { count }, count)
-})
+const mobileStatus = computed(() =>
+  t('layout.mobileStatus', { count: system.info?.mobile_online ?? 0 }),
+)
 const lastLogin = computed(() =>
   formatDateTime(auth.user?.last_login_at, locale.value, t('layout.neverLoggedIn')),
 )
@@ -129,7 +128,7 @@ async function handleLogout(): Promise<void> {
         </div>
         <div class="runtime-meta">
           <span>v{{ version }}</span>
-          <span>{{ platformCountLabel }}</span>
+          <span>{{ mobileStatus }}</span>
         </div>
       </div>
     </div>
