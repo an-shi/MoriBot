@@ -79,6 +79,7 @@ const fallbackTypes: ProviderTypeInfo[] = [
 const name = ref('')
 const baseUrl = ref('')
 const apiKey = ref('')
+const showApiKey = ref(false)
 const model = ref('')
 const providerType = ref('openai_compatible')
 const presetId = ref('')
@@ -86,6 +87,7 @@ const apiVersion = ref('2024-10-21')
 const isDefault = ref(false)
 const enabled = ref(true)
 const errorMessage = ref('')
+const modelsNeedKey = ref(false)
 const saving = ref(false)
 const capabilities = ref<ModelCapabilities | null>(null)
 const modelOptions = ref<ProviderModelInfo[]>([])
@@ -193,13 +195,13 @@ function applyPreset(id: string): void {
   if (!name.value.trim()) {
     name.value = preset.name
   }
-  const models = preset.models[activeCategory.value] || []
-  if (!model.value.trim() && models.length) {
-    model.value = models[0]
-  }
+  // Model names must come from the vendor's model list, not from a preset.
+  model.value = ''
   modelOptions.value = []
   capabilities.value = null
   modelsMessage.value = ''
+  modelsNeedKey.value = false
+  errorMessage.value = ''
   if (preset.provider_type === 'elevenlabs' && (!voice.value || voice.value === 'alloy')) {
     voice.value = '21m00Tcm4TlvDq8ikWAM'
   }
@@ -214,9 +216,12 @@ function applyType(id: string): void {
   if (id === 'elevenlabs' && (!voice.value || voice.value === 'alloy')) {
     voice.value = '21m00Tcm4TlvDq8ikWAM'
   }
+  model.value = ''
   modelOptions.value = []
   capabilities.value = null
   modelsMessage.value = ''
+  modelsNeedKey.value = false
+  errorMessage.value = ''
 }
 
 function applyParameterPreset(value: string): void {
@@ -250,6 +255,14 @@ async function fetchModels(): Promise<void> {
     errorMessage.value = t('providers.dialog.required')
     return
   }
+  const hasStoredKey = Boolean(props.provider?.api_key_set)
+  if (apiKeyRequired.value && !apiKey.value.trim() && !hasStoredKey) {
+    modelsNeedKey.value = true
+    modelsMessage.value = ''
+    errorMessage.value = ''
+    return
+  }
+  modelsNeedKey.value = false
   modelsLoading.value = true
   modelsMessage.value = ''
   errorMessage.value = ''
@@ -285,11 +298,13 @@ function resetForm(): void {
   name.value = provider?.name ?? ''
   baseUrl.value = provider?.base_url ?? ''
   apiKey.value = ''
+  showApiKey.value = false
   model.value = provider?.model ?? ''
   providerType.value = provider?.provider_type ?? 'openai_compatible'
   isDefault.value = provider?.is_default ?? false
   enabled.value = provider?.enabled ?? true
   errorMessage.value = ''
+  modelsNeedKey.value = false
 
   const options = (provider?.options ?? {}) as Record<string, unknown>
   apiVersion.value = String(options.api_version ?? '2024-10-21')
@@ -348,6 +363,13 @@ watch(
   },
   { immediate: true },
 )
+
+watch(apiKey, (value) => {
+  if (modelsNeedKey.value && value.trim()) {
+    modelsNeedKey.value = false
+    errorMessage.value = ''
+  }
+})
 
 function numberOrUndefined(value: string | number): number | undefined {
   if (value === '' || value === null || value === undefined) {
@@ -468,7 +490,7 @@ async function save(): Promise<void> {
           {{ errorMessage }}
         </v-alert>
 
-        <v-form @submit.prevent="save">
+        <v-form autocomplete="off" @submit.prevent="save">
           <div class="form-row form-row--two">
             <div class="field">
               <label>{{ t('providers.dialog.preset') }}</label>
@@ -488,6 +510,8 @@ async function save(): Promise<void> {
               <label>{{ t('providers.dialog.name') }}</label>
               <v-text-field
                 v-model="name"
+                name="provider-name"
+                autocomplete="off"
                 variant="outlined"
                 density="comfortable"
                 hide-details="auto"
@@ -514,6 +538,8 @@ async function save(): Promise<void> {
               <label>{{ t('providers.dialog.baseUrl') }}</label>
               <v-text-field
                 v-model="baseUrl"
+                name="provider-base-url"
+                autocomplete="off"
                 variant="outlined"
                 density="comfortable"
                 hide-details="auto"
@@ -540,7 +566,11 @@ async function save(): Promise<void> {
               <label>{{ t('providers.dialog.apiKey') }}</label>
               <v-text-field
                 v-model="apiKey"
-                type="password"
+                type="text"
+                name="provider-api-key"
+                autocomplete="off"
+                class="api-key-field"
+                :class="{ 'api-key-field--visible': showApiKey }"
                 variant="outlined"
                 density="comfortable"
                 hide-details="auto"
@@ -550,13 +580,33 @@ async function save(): Promise<void> {
                     : t('providers.dialog.apiKeyPlaceholder')
                 "
                 prepend-inner-icon="mdi-key-outline"
-                autocomplete="new-password"
-              />
+              >
+                <template #append-inner>
+                  <v-btn
+                    icon
+                    variant="text"
+                    size="x-small"
+                    type="button"
+                    :aria-label="
+                      showApiKey
+                        ? t('providers.dialog.hideApiKey')
+                        : t('providers.dialog.showApiKey')
+                    "
+                    @click.stop="showApiKey = !showApiKey"
+                  >
+                    <v-icon size="17">
+                      {{ showApiKey ? 'mdi-eye-off' : 'mdi-eye' }}
+                    </v-icon>
+                  </v-btn>
+                </template>
+              </v-text-field>
             </div>
             <div class="field">
               <label>{{ t('providers.dialog.model') }}</label>
               <v-combobox
                 v-model="model"
+                name="provider-model"
+                autocomplete="off"
                 :items="modelOptions"
                 item-title="id"
                 item-value="id"
@@ -589,8 +639,12 @@ async function save(): Promise<void> {
           </div>
           <div class="field-hints">
             <p class="field-hint">{{ t('providers.dialog.apiKeyHint') }}</p>
-            <p class="field-hint">
-              {{ modelsMessage || t('providers.dialog.fetchModelsHint') }}
+            <p class="field-hint" :class="{ 'field-hint--warning': modelsNeedKey }">
+              {{
+                modelsNeedKey
+                  ? t('providers.dialog.modelsNeedApiKey')
+                  : modelsMessage || t('providers.dialog.fetchModelsHint')
+              }}
             </p>
           </div>
           <div v-if="capabilityLabels.length" class="capability-chips">
@@ -847,6 +901,14 @@ async function save(): Promise<void> {
   color: var(--mori-line-strong);
 }
 
+.api-key-field :deep(input) {
+  -webkit-text-security: disc;
+}
+
+.api-key-field--visible :deep(input) {
+  -webkit-text-security: none;
+}
+
 .field-hint {
   margin: -4px 0 16px;
   color: var(--mori-muted);
@@ -860,6 +922,11 @@ async function save(): Promise<void> {
 
 .field-hints .field-hint {
   margin: 0 0 4px;
+}
+
+.field-hint--warning {
+  color: rgb(var(--v-theme-error));
+  font-weight: 600;
 }
 
 .capability-chips {
