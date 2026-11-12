@@ -134,6 +134,7 @@ class ProviderCreateRequest(BaseModel):
     api_key: str = Field(default="", max_length=2048)
     model: str = Field(min_length=1, max_length=128)
     options: dict[str, Any] = Field(default_factory=dict)
+    capabilities: dict[str, Any] = Field(default_factory=dict)
     is_default: bool = False
     enabled: bool = True
 
@@ -145,8 +146,31 @@ class ProviderUpdateRequest(BaseModel):
     api_key: str | None = Field(default=None, max_length=2048)
     model: str | None = Field(default=None, min_length=1, max_length=128)
     options: dict[str, Any] | None = None
+    capabilities: dict[str, Any] | None = None
     is_default: bool | None = None
     enabled: bool | None = None
+
+
+class ProviderModelsRequest(BaseModel):
+    provider_type: str
+    category: ProviderCategoryLiteral
+    base_url: str = Field(min_length=1, max_length=512)
+    api_key: str = Field(default="", max_length=2048)
+    provider_id: int | None = None
+    options: dict[str, Any] = Field(default_factory=dict)
+
+
+class ProviderModelInfo(BaseModel):
+    id: str
+    name: str
+    capabilities: dict[str, Any] = Field(default_factory=dict)
+    owned_by: str = ""
+
+
+class ProviderModelsOut(BaseModel):
+    models: list[ProviderModelInfo] = Field(default_factory=list)
+    message: str = ""
+    manual_allowed: bool = True
 
 
 class ProviderOut(BaseModel):
@@ -157,6 +181,7 @@ class ProviderOut(BaseModel):
     base_url: str
     model: str
     options: dict[str, Any] = Field(default_factory=dict)
+    capabilities: dict[str, Any] = Field(default_factory=dict)
     is_default: bool = False
     enabled: bool = True
     api_key_set: bool = False

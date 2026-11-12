@@ -38,6 +38,7 @@ class ProviderConfigSpec:
     api_key: str
     model: str
     options: dict[str, Any]
+    capabilities: dict[str, Any]
     is_default: bool
 
 
@@ -59,6 +60,7 @@ def spec_from_record(record: ModelProvider, secret_box: SecretBox) -> ProviderCo
         api_key=api_key,
         model=record.model,
         options=dict(record.options or {}),
+        capabilities=dict(record.capabilities or {}),
         is_default=record.is_default,
     )
 
@@ -73,6 +75,7 @@ def build_provider(spec: ProviderConfigSpec) -> Provider:
         "name": spec.name,
         "base_url": spec.base_url,
         "api_key": spec.api_key,
+        "capabilities": spec.capabilities,
     }
     provider_id = str(spec.id)
 

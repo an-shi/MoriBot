@@ -84,6 +84,7 @@ class Provider:
         self.provider_id = provider_id
         self.model = model
         self.config = dict(config or {})
+        self.capabilities = dict(self.config.get("capabilities", {}) or {})
 
     @property
     def display_name(self) -> str:
@@ -100,6 +101,7 @@ class Provider:
             "type": self.provider_type,
             "category": self.category,
             "model": self.model,
+            "capabilities": self.capabilities,
         }
 
 

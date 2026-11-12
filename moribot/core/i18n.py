@@ -110,6 +110,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "provider.test_unavailable": "模型配置尚未加载，请稍后重试",
         "provider.speech_preview": "已生成 {bytes} 字节音频",
         "provider.image_preview": "已生成 {count} 张图片",
+        "provider.models_failed": "获取模型列表失败: {detail}",
+        "provider.models_empty": "供应商未返回可用模型，可手动输入模型名称",
     },
     "en-US": {
         "common.unauthorized": "Authentication required",
@@ -197,6 +199,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "provider.test_unavailable": "Provider is not loaded yet. Try again shortly",
         "provider.speech_preview": "Generated {bytes} bytes of audio",
         "provider.image_preview": "Generated {count} image(s)",
+        "provider.models_failed": "Failed to fetch model list: {detail}",
+        "provider.models_empty": "No models returned; enter a model name manually",
     },
 }
 

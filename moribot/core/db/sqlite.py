@@ -21,6 +21,19 @@ class SQLiteDatabase(BaseDatabase):
         self.db_path = path
         super().__init__(f"sqlite+aiosqlite:///{path.as_posix()}")
 
+    async def initialize(self) -> None:
+        await super().initialize()
+        # create_all does not add columns to an existing table. Apply the
+        # small additive migration needed by installations created before
+        # model capabilities were introduced.
+        async with self.engine.begin() as connection:
+            result = await connection.exec_driver_sql("PRAGMA table_info(model_providers)")
+            columns = {row[1] for row in result.fetchall()}
+            if "capabilities" not in columns:
+                await connection.exec_driver_sql(
+                    "ALTER TABLE model_providers ADD COLUMN capabilities JSON"
+                )
+
     async def count_users(self) -> int:
         return await self._count_users()
 

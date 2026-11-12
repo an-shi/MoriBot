@@ -12,6 +12,8 @@ from ..responses import ApiResponse, ok
 from ..schemas import (
     ProviderCatalogOut,
     ProviderCreateRequest,
+    ProviderModelsOut,
+    ProviderModelsRequest,
     ProviderOut,
     ProviderTestResult,
     ProviderUpdateRequest,
@@ -28,6 +30,17 @@ async def provider_catalog(
 ) -> dict:
     """Return supported adapter types and vendor presets for the UI."""
     return ok(service.catalog())
+
+
+@router.post("/models", response_model=ApiResponse[ProviderModelsOut])
+async def provider_models(
+    payload: ProviderModelsRequest,
+    request: Request,
+    _user: User = Depends(get_current_user),
+    service: ProviderConfigService = Depends(get_provider_service),
+) -> dict:
+    """Fetch the real model list and capabilities from the vendor."""
+    return ok(await service.list_models(payload, locale=get_locale(request)))
 
 
 @router.get("", response_model=ApiResponse[list[ProviderOut]])

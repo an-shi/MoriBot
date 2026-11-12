@@ -17,11 +17,18 @@ from moribot.core.provider import (
     ImageProvider,
 )
 from moribot.core.provider.catalog import catalog_payload, provider_type_supports
+from moribot.core.provider.discovery import (
+    infer_capabilities,
+    list_models as discover_models,
+)
 from moribot.core.provider.manager import ProviderManager
 
 from ..schemas import (
     ProviderCatalogOut,
     ProviderCreateRequest,
+    ProviderModelInfo,
+    ProviderModelsOut,
+    ProviderModelsRequest,
     ProviderOut,
     ProviderTestResult,
     ProviderUpdateRequest,
@@ -44,6 +51,62 @@ class ProviderConfigService:
     def catalog() -> ProviderCatalogOut:
         """Return supported adapters and vendor presets for the UI."""
         return ProviderCatalogOut.model_validate(catalog_payload())
+
+    async def list_models(
+        self,
+        payload: ProviderModelsRequest,
+        *,
+        locale: str = DEFAULT_LOCALE,
+    ) -> ProviderModelsOut:
+        """Ask the selected vendor for its real model list."""
+        category = self._validate_category(payload.category, locale)
+        provider_type = payload.provider_type.strip()
+        if not provider_type_supports(provider_type, category):
+            return ProviderModelsOut(
+                message=translate("provider.unsupported_type", locale),
+            )
+
+        api_key = payload.api_key.strip()
+        if not api_key and payload.provider_id is not None:
+            record = await self.db.get_model_provider(payload.provider_id)
+            if record is not None:
+                try:
+                    api_key = self.secret_box.decrypt(record.api_key_encrypted)
+                except Exception:
+                    api_key = ""
+
+        try:
+            base_url = self._normalize_base_url(payload.base_url, locale)
+            models = await discover_models(
+                provider_type=provider_type,
+                category=category,
+                base_url=base_url,
+                api_key=api_key,
+                options=payload.options,
+            )
+        except Exception as exc:
+            return ProviderModelsOut(
+                message=translate("provider.models_failed", locale, detail=str(exc)[:300]),
+                manual_allowed=True,
+            )
+
+        if not models:
+            return ProviderModelsOut(
+                message=translate("provider.models_empty", locale),
+                manual_allowed=True,
+            )
+        return ProviderModelsOut(
+            models=[
+                ProviderModelInfo(
+                    id=model.id,
+                    name=model.name,
+                    capabilities=model.capabilities,
+                    owned_by=model.owned_by,
+                )
+                for model in models
+            ],
+            manual_allowed=True,
+        )
 
     async def list_providers(self, category: str | None = None) -> list[ProviderOut]:
         records = await self.db.list_model_providers(category=category)
@@ -78,6 +141,10 @@ class ProviderConfigService:
             raise MoriError(translate("provider.invalid_options", locale, detail="default"))
 
         options = self._normalize_options(category, payload.options, locale)
+        capabilities = self._normalize_capabilities(
+            payload.capabilities
+            or infer_capabilities(category, provider_type, model)
+        )
         values = {
             "category": category,
             "name": name,
@@ -86,6 +153,7 @@ class ProviderConfigService:
             "api_key_encrypted": self.secret_box.encrypt(payload.api_key.strip()),
             "model": model,
             "options": options,
+            "capabilities": capabilities,
             "is_default": False,
             "enabled": payload.enabled,
         }
@@ -150,6 +218,19 @@ class ProviderConfigService:
             raise MoriError(translate("provider.invalid_options", locale, detail="default"))
         if payload.enabled is False and record.is_default and payload.is_default is None:
             values["is_default"] = False
+
+        target_provider_type = values.get("provider_type", record.provider_type)
+        target_model = values.get("model", record.model)
+        if payload.capabilities is not None:
+            values["capabilities"] = self._normalize_capabilities(payload.capabilities)
+        elif payload.provider_type is not None or payload.model is not None:
+            values["capabilities"] = self._normalize_capabilities(
+                infer_capabilities(
+                    record.category,
+                    target_provider_type,
+                    target_model,
+                )
+            )
 
         updated = await self.db.update_model_provider(provider_id, values)
         if updated is None:
@@ -288,6 +369,35 @@ class ProviderConfigService:
             await self.db.set_default_model_provider(category, candidates[0].id)
 
     @staticmethod
+    def _normalize_capabilities(value: dict) -> dict:
+        if not isinstance(value, dict):
+            value = {}
+
+        def modalities(key: str, default: list[str]) -> list[str]:
+            raw = value.get(key)
+            if not isinstance(raw, list):
+                return default
+            allowed = {"text", "image", "audio", "video"}
+            result = [str(item).lower() for item in raw if str(item).lower() in allowed]
+            return result or default
+
+        try:
+            context_window = max(0, int(value.get("context_window", 0) or 0))
+        except (TypeError, ValueError):
+            context_window = 0
+        source = str(value.get("source", "manual"))
+        if source not in {"api", "heuristic", "manual"}:
+            source = "manual"
+        return {
+            "input": modalities("input", ["text"]),
+            "output": modalities("output", ["text"]),
+            "tools": bool(value.get("tools", False)),
+            "reasoning": bool(value.get("reasoning", False)),
+            "context_window": context_window,
+            "source": source,
+        }
+
+    @staticmethod
     def _normalize_base_url(value: str, locale: str) -> str:
         base_url = value.strip().rstrip("/")
         parsed = urlparse(base_url)
@@ -346,6 +456,7 @@ class ProviderConfigService:
             base_url=record.base_url,
             model=record.model,
             options=dict(record.options or {}),
+            capabilities=dict(record.capabilities or {}),
             is_default=record.is_default,
             enabled=record.enabled,
             api_key_set=bool(api_key),

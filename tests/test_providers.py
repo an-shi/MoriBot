@@ -52,10 +52,20 @@ def test_provider_crud_defaults_and_encrypted_keys(tmp_path):
             ("speech", "Voice", "tts-1"),
             ("image", "Images", "gpt-image-1"),
         ):
+            payload = _provider_payload(category, name, model)
+            if category == "chat":
+                payload["capabilities"] = {
+                    "input": ["text", "image"],
+                    "output": ["text"],
+                    "tools": True,
+                    "reasoning": True,
+                    "context_window": 128000,
+                    "source": "api",
+                }
             response = client.post(
                 "/api/v1/providers",
                 headers=headers,
-                json=_provider_payload(category, name, model),
+                json=payload,
             )
             assert response.status_code == 200, response.text
             data = response.json()["data"]
@@ -63,6 +73,9 @@ def test_provider_crud_defaults_and_encrypted_keys(tmp_path):
             assert data["api_key_set"] is True
             assert data["api_key_hint"].endswith("1234")
             assert "sk-test-secret" not in response.text
+            if category == "chat":
+                assert data["capabilities"]["context_window"] == 128000
+                assert "image" in data["capabilities"]["input"]
             created.append(data)
 
         providers = client.get("/api/v1/providers", headers=headers).json()["data"]

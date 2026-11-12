@@ -96,6 +96,7 @@ class ModelProvider(TimestampMixin, SQLModel, table=True):
     api_key_encrypted: str = Field(default="", max_length=2048, nullable=False)
     model: str = Field(max_length=128, nullable=False)
     options: dict = Field(default_factory=dict, sa_type=JSON)
+    capabilities: dict = Field(default_factory=dict, sa_type=JSON)
     is_default: bool = Field(default=False, nullable=False)
     enabled: bool = Field(default=True, nullable=False)
     last_test_ok: bool | None = Field(default=None)
