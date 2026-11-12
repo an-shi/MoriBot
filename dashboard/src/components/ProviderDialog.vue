@@ -202,8 +202,10 @@ function applyPreset(id: string): void {
   modelsMessage.value = ''
   modelsNeedKey.value = false
   errorMessage.value = ''
-  if (preset.provider_type === 'elevenlabs' && (!voice.value || voice.value === 'alloy')) {
-    voice.value = '21m00Tcm4TlvDq8ikWAM'
+  if (activeCategory.value === 'speech') {
+    voice.value =
+      preset.voice ||
+      (preset.provider_type === 'elevenlabs' ? '21m00Tcm4TlvDq8ikWAM' : 'alloy')
   }
 }
 
@@ -280,7 +282,10 @@ async function fetchModels(): Promise<void> {
       result.message ||
       t('providers.dialog.modelsFetched', { count: result.models.length })
     if (!model.value && result.models.length) {
-      model.value = result.models[0].id
+      const preferred = selectedPreset.value?.models[activeCategory.value] ?? []
+      const next =
+        result.models.find((item) => preferred.includes(item.id)) ?? result.models[0]
+      model.value = next.id
       applyModelCapabilities(model.value)
     } else if (model.value) {
       applyModelCapabilities(model.value)

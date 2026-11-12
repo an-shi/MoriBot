@@ -34,6 +34,7 @@ class ProviderPreset:
     models: dict[str, tuple[str, ...]]
     docs_url: str = ""
     api_key_required: bool = True
+    voice: str = ""
 
 
 PROVIDER_TYPES: dict[str, ProviderTypeSpec] = {
@@ -164,6 +165,7 @@ PROVIDER_PRESETS: tuple[ProviderPreset, ...] = (
         base_url="https://api.elevenlabs.io/v1",
         models=_models(speech=("eleven_multilingual_v2", "eleven_turbo_v2_5")),
         docs_url="https://elevenlabs.io/docs/models",
+        voice="21m00Tcm4TlvDq8ikWAM",
     ),
     ProviderPreset(
         id="deepseek",
@@ -214,19 +216,52 @@ PROVIDER_PRESETS: tuple[ProviderPreset, ...] = (
         id="doubao",
         name="火山方舟 / 豆包",
         provider_type="openai_compatible",
-        categories=(ProviderCategory.CHAT,),
+        categories=(ProviderCategory.CHAT, ProviderCategory.IMAGE),
         base_url="https://ark.cn-beijing.volces.com/api/v3",
-        models=_models(chat=("ep-your-endpoint-id",)),
+        models=_models(
+            chat=("ep-your-endpoint-id",),
+            image=(
+                "doubao-seedream-5-0-lite-260128",
+                "doubao-seedream-4-0-250828",
+            ),
+        ),
         docs_url="https://www.volcengine.com/docs/82379",
     ),
     ProviderPreset(
         id="siliconflow",
         name="SiliconFlow 硅基流动",
         provider_type="openai_compatible",
-        categories=(ProviderCategory.CHAT,),
+        categories=(
+            ProviderCategory.CHAT,
+            ProviderCategory.SPEECH,
+            ProviderCategory.IMAGE,
+        ),
         base_url="https://api.siliconflow.cn/v1",
-        models=_models(chat=("Qwen/Qwen3-8B", "deepseek-ai/DeepSeek-V3")),
+        models=_models(
+            chat=("Qwen/Qwen3-8B", "deepseek-ai/DeepSeek-V3"),
+            speech=("FunAudioLLM/CosyVoice2-0.5B",),
+            image=(
+                "black-forest-labs/FLUX.1-schnell",
+                "Kwai-Kolors/Kolors",
+                "Qwen/Qwen-Image",
+            ),
+        ),
         docs_url="https://docs.siliconflow.cn/",
+        voice="FunAudioLLM/CosyVoice2-0.5B:alex",
+    ),
+    ProviderPreset(
+        id="deepinfra",
+        name="DeepInfra",
+        provider_type="openai_compatible",
+        categories=(ProviderCategory.IMAGE,),
+        base_url="https://api.deepinfra.com/v1/openai",
+        models=_models(
+            image=(
+                "black-forest-labs/FLUX-1-schnell",
+                "black-forest-labs/FLUX-2-klein-4b",
+            )
+        ),
+        docs_url="https://docs.deepinfra.com/apis/image-generation",
     ),
     ProviderPreset(
         id="openrouter",
@@ -241,10 +276,14 @@ PROVIDER_PRESETS: tuple[ProviderPreset, ...] = (
         id="groq",
         name="Groq",
         provider_type="openai_compatible",
-        categories=(ProviderCategory.CHAT,),
+        categories=(ProviderCategory.CHAT, ProviderCategory.SPEECH),
         base_url="https://api.groq.com/openai/v1",
-        models=_models(chat=("llama-3.3-70b-versatile", "openai/gpt-oss-120b")),
+        models=_models(
+            chat=("llama-3.3-70b-versatile", "openai/gpt-oss-120b"),
+            speech=("canopylabs/orpheus-v1-english", "canopylabs/orpheus-arabic-saudi"),
+        ),
         docs_url="https://console.groq.com/docs",
+        voice="troy",
     ),
     ProviderPreset(
         id="mistral",
@@ -268,10 +307,23 @@ PROVIDER_PRESETS: tuple[ProviderPreset, ...] = (
         id="together",
         name="Together AI",
         provider_type="openai_compatible",
-        categories=(ProviderCategory.CHAT,),
+        categories=(
+            ProviderCategory.CHAT,
+            ProviderCategory.SPEECH,
+            ProviderCategory.IMAGE,
+        ),
         base_url="https://api.together.xyz/v1",
-        models=_models(chat=("meta-llama/Llama-3.3-70B-Instruct-Turbo",)),
+        models=_models(
+            chat=("meta-llama/Llama-3.3-70B-Instruct-Turbo",),
+            speech=(
+                "hexgrad/Kokoro-82M",
+                "cartesia/sonic-3",
+                "canopylabs/orpheus-3b-0.1-ft",
+            ),
+            image=("black-forest-labs/FLUX.1-schnell", "black-forest-labs/FLUX.2-dev"),
+        ),
         docs_url="https://docs.together.ai/",
+        voice="af_heart",
     ),
     ProviderPreset(
         id="perplexity",
@@ -383,6 +435,7 @@ def catalog_payload() -> dict[str, Any]:
                 },
                 "docs_url": preset.docs_url,
                 "api_key_required": preset.api_key_required,
+                "voice": preset.voice,
             }
             for preset in PROVIDER_PRESETS
         ],

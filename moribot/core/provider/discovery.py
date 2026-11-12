@@ -42,6 +42,38 @@ _REASONING_MARKERS = (
     "deepseek-r1",
 )
 _TOOL_EXCLUDES = ("embedding", "whisper", "tts", "dall-e", "image", "moderation", "rerank")
+_CHAT_EXCLUDES = _TOOL_EXCLUDES + (
+    "stable-diffusion",
+    "flux",
+    "kolors",
+    "seedream",
+    "sdxl",
+    "imagen",
+    "orpheus",
+    "cosyvoice",
+    "kokoro",
+    "playai",
+)
+_SPEECH_MARKERS = (
+    "tts",
+    "speech",
+    "audio",
+    "orpheus",
+    "cosyvoice",
+    "kokoro",
+    "playai",
+    "sonic",
+)
+_IMAGE_MARKERS = (
+    "image",
+    "dall-e",
+    "stable-diffusion",
+    "flux",
+    "kolors",
+    "seedream",
+    "sdxl",
+    "imagen",
+)
 
 
 @dataclass(slots=True)
@@ -163,10 +195,10 @@ def infer_capabilities(
 def _category_relevant(category: str, model_id: str) -> bool:
     lower = model_id.lower()
     if category == ProviderCategory.CHAT:
-        return not any(marker in lower for marker in _TOOL_EXCLUDES)
+        return not any(marker in lower for marker in _CHAT_EXCLUDES)
     if category == ProviderCategory.SPEECH:
-        return any(marker in lower for marker in ("tts", "speech", "audio"))
-    return any(marker in lower for marker in ("image", "dall-e", "stable-diffusion", "flux"))
+        return any(marker in lower for marker in _SPEECH_MARKERS)
+    return any(marker in lower for marker in _IMAGE_MARKERS)
 
 
 def _filter_models(category: str, models: list[ModelInfo]) -> list[ModelInfo]:

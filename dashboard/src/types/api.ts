@@ -124,6 +124,7 @@ export interface ProviderPreset {
   models: Partial<Record<ProviderCategory, string[]>>
   docs_url: string
   api_key_required: boolean
+  voice: string
 }
 
 export interface ProviderCatalog {

@@ -152,6 +152,31 @@ def test_provider_catalog_and_native_type_validation(tmp_path):
             "elevenlabs",
         } <= type_ids
 
+        presets = catalog.json()["data"]["presets"]
+        by_id = {preset["id"]: preset for preset in presets}
+        speech_presets = {preset["id"] for preset in presets if "speech" in preset["categories"]}
+        image_presets = {preset["id"] for preset in presets if "image" in preset["categories"]}
+        assert {
+            "openai",
+            "azure",
+            "elevenlabs",
+            "groq",
+            "together",
+            "siliconflow",
+        } <= speech_presets
+        assert {
+            "openai",
+            "azure",
+            "gemini",
+            "together",
+            "siliconflow",
+            "deepinfra",
+            "doubao",
+        } <= image_presets
+        assert by_id["groq"]["voice"] == "troy"
+        assert by_id["together"]["voice"] == "af_heart"
+        assert by_id["siliconflow"]["voice"] == "FunAudioLLM/CosyVoice2-0.5B:alex"
+
         anthropic = _provider_payload("chat", "Claude", "claude-sonnet-4-5")
         anthropic["provider_type"] = "anthropic"
         anthropic["base_url"] = "https://api.anthropic.com/v1"

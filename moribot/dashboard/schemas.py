@@ -119,6 +119,7 @@ class ProviderPresetOut(BaseModel):
     models: dict[str, list[str]] = Field(default_factory=dict)
     docs_url: str = ""
     api_key_required: bool = True
+    voice: str = ""
 
 
 class ProviderCatalogOut(BaseModel):

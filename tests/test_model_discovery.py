@@ -20,6 +20,10 @@ class _ModelsHandler(BaseHTTPRequestHandler):
                         {"id": "text-embedding-3-small", "owned_by": "openai"},
                         {"id": "tts-1", "owned_by": "openai"},
                         {"id": "dall-e-3", "owned_by": "openai"},
+                        {"id": "canopylabs/orpheus-v1-english", "owned_by": "groq"},
+                        {"id": "Kwai-Kolors/Kolors", "owned_by": "siliconflow"},
+                        {"id": "doubao-seedream-4-0-250828", "owned_by": "volcengine"},
+                        {"id": "black-forest-labs/FLUX.1-schnell", "owned_by": "together"},
                         {
                             "id": "anthropic/claude-sonnet-4",
                             "owned_by": "openrouter",
@@ -86,6 +90,10 @@ def test_discover_openai_models_filters_and_infers_vision():
             assert "text-embedding-3-small" not in by_id
             assert "tts-1" not in by_id
             assert "dall-e-3" not in by_id
+            assert "canopylabs/orpheus-v1-english" not in by_id
+            assert "Kwai-Kolors/Kolors" not in by_id
+            assert "doubao-seedream-4-0-250828" not in by_id
+            assert "black-forest-labs/FLUX.1-schnell" not in by_id
             assert "image" in by_id["gpt-4o"].capabilities["input"]
             assert by_id["gpt-4o"].capabilities["tools"] is True
 
@@ -100,8 +108,26 @@ def test_discover_openai_models_filters_and_infers_vision():
                 base_url=base_url,
                 api_key="test",
             )
-            assert {model.id for model in speech} == {"tts-1"}
+            assert {model.id for model in speech} == {
+                "tts-1",
+                "canopylabs/orpheus-v1-english",
+            }
             assert speech[0].capabilities["output"] == ["audio"]
+
+            image = await list_models(
+                provider_type="openai_compatible",
+                category="image",
+                base_url=base_url,
+                api_key="test",
+            )
+            image_ids = {model.id for model in image}
+            assert {
+                "dall-e-3",
+                "Kwai-Kolors/Kolors",
+                "doubao-seedream-4-0-250828",
+                "black-forest-labs/FLUX.1-schnell",
+            } <= image_ids
+            assert "gpt-4o" not in image_ids
         finally:
             server.shutdown()
             thread.join(timeout=2)
