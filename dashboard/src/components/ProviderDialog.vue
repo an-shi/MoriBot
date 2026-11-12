@@ -74,6 +74,15 @@ const fallbackTypes: ProviderTypeInfo[] = [
     api_key_required: true,
     docs_url: '',
   },
+  {
+    id: 'minimax',
+    name: 'MiniMax',
+    description: '',
+    categories: ['chat', 'speech', 'image'],
+    default_base_url: 'https://api.minimax.io/v1',
+    api_key_required: true,
+    docs_url: '',
+  },
 ]
 
 const name = ref('')
@@ -84,6 +93,7 @@ const model = ref('')
 const providerType = ref('openai_compatible')
 const presetId = ref('')
 const apiVersion = ref('2024-10-21')
+const groupId = ref('')
 const isDefault = ref(false)
 const enabled = ref(true)
 const errorMessage = ref('')
@@ -313,6 +323,7 @@ function resetForm(): void {
 
   const options = (provider?.options ?? {}) as Record<string, unknown>
   apiVersion.value = String(options.api_version ?? '2024-10-21')
+  groupId.value = String(options.group_id ?? '')
   temperature.value = (options.temperature as string | number) ?? (provider ? '' : 0.7)
   maxTokens.value = (options.max_tokens as string | number) ?? (provider ? '' : 2048)
   voice.value = String(
@@ -402,6 +413,9 @@ function buildOptions(): Record<string, unknown> {
   const options: Record<string, unknown> = {}
   if (providerType.value === 'azure_openai') {
     options.api_version = apiVersion.value.trim() || '2024-10-21'
+  }
+  if (providerType.value === 'minimax' && groupId.value.trim()) {
+    options.group_id = groupId.value.trim()
   }
   if (activeCategory.value === 'chat') {
     const temp = numberOrUndefined(temperature.value)
@@ -565,6 +579,20 @@ async function save(): Promise<void> {
               :placeholder="t('providers.dialog.apiVersionHint')"
             />
           </div>
+
+          <div v-if="providerType === 'minimax'" class="field">
+            <label>{{ t('providers.dialog.groupId') }}</label>
+            <v-text-field
+              v-model="groupId"
+              variant="outlined"
+              density="comfortable"
+              hide-details="auto"
+              :placeholder="t('providers.dialog.groupIdPlaceholder')"
+            />
+          </div>
+          <p v-if="providerType === 'minimax'" class="field-hint">
+            {{ t('providers.dialog.groupIdHint') }}
+          </p>
 
           <div class="form-row form-row--two">
             <div class="field">
