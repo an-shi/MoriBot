@@ -25,7 +25,55 @@ MoriBot 把模型分成三个固定角色，配置保存在数据库 `model_prov
 
 控制台提供供应商预设，选择预设会自动填充 Provider 类型、Base URL 和模型示例。也可以选择「自定义 / OpenAI 兼容」手动填写任意端点。
 
-### 1.1 常用 Base URL
+### 1.1 从供应商获取模型列表
+
+模型名称不再写死在代码里。填写 Base URL 和 API Key 后，点击模型输入框右侧的刷新按钮，MoriBot 会直接请求供应商的官方模型接口：
+
+| 供应商类型 | 模型列表接口 |
+| --- | --- |
+| `openai_compatible` | `GET {base_url}/models` |
+| `anthropic` | `GET {base_url}/models` |
+| `google_gemini` | `GET {base_url}/models` |
+| `azure_openai` | `GET {base_url}/openai/models?api-version=...` |
+| `elevenlabs` | `GET {base_url}/models` |
+
+返回的列表会按当前角色过滤：主模型排除 embedding、TTS、图片生成等模型；语音模型只保留 TTS/语音模型；图片模型只保留图片生成模型。若供应商没有返回可识别列表，界面会提示失败原因并保留手动输入，不会阻塞保存。
+
+获取模型列表的同时会解析能力信息并写入 `capabilities`：
+
+```json
+{
+  "input": ["text", "image"],
+  "output": ["text"],
+  "tools": true,
+  "reasoning": false,
+  "context_window": 128000,
+  "source": "api"
+}
+```
+
+- `input` / `output`：支持的输入、输出模态（`text`、`image`、`audio`、`video`）。
+- `tools`：是否支持工具调用；主模型据此决定是否发送 `tools`。
+- `reasoning`：是否为推理模型，便于后续调整参数。
+- `context_window`：上下文窗口大小。
+- `source`：`api` 表示来自供应商元数据，`heuristic` 表示按模型名推断，`manual` 表示用户手动填写。
+
+OpenRouter、Gemini 等会返回 `architecture`、`inputTokenLimit` 等元数据；OpenAI 等只返回模型 ID 的供应商会按模型名做保守推断（例如含 `gpt-4o`、`vl`、`claude`、`gemini` 视为支持图片输入）。推断结果会随配置持久化，对话层读取同一份能力，不需要再猜。
+
+### 1.2 参数预设
+
+主模型的 `temperature` 和 `max_tokens` 对新手不直观，配置界面提供预设：
+
+| 预设 | temperature | max_tokens | 适用场景 |
+| --- | --- | --- | --- |
+| 平衡（推荐） | 0.7 | 2048 | 日常对话 |
+| 精确稳定 | 0.2 | 1024 | 事实问答、结构化输出 |
+| 创意发散 | 1.0 | 4096 | 写作、头脑风暴 |
+| 自定义 | 手动 | 手动 | 高级用户 |
+
+选择预设会自动填入参数，手动修改任一参数会切回「自定义」。语音和图片模型不显示该预设，而是给出音色/格式/尺寸等说明。
+
+### 1.3 常用 Base URL
 
 | 供应商 | Base URL |
 | --- | --- |
@@ -51,13 +99,12 @@ MoriBot 把模型分成三个固定角色，配置保存在数据库 `model_prov
 
 1. 登录后台，打开左侧「模型服务」。
 2. 在「主模型 / 语音模型 / 图片模型」中分别点击「添加模型」。
-3. 填写名称、Base URL、API Key、模型名称。
-4. 根据类型填写可选参数：
-   - 主模型：`temperature`、`max_tokens`
-   - 语音模型：`voice`、音频格式、`speed`
-   - 图片模型：尺寸、质量、数量、返回格式
-5. 保存后点击「测试连接」发起一次真实的小请求。
-6. 每种类型可以配置多个，点击「设为默认」切换默认模型。
+3. 选择供应商预设，或选择「自定义 / OpenAI 兼容」，填写名称、Base URL、API Key。
+4. 点击模型输入框右侧的刷新按钮，从供应商官方接口获取模型列表并下拉选择；无法获取时可手动输入模型名称。
+5. 查看模型能力标签（图片识别、工具调用、推理、上下文），确认是否符合预期。
+6. 主模型可选择参数预设，或手动调整 `temperature`、`max_tokens`；语音/图片模型按提示填写音色、格式、尺寸等。
+7. 保存后点击「测试连接」发起一次真实的小请求。
+8. 每种类型可以配置多个，点击「设为默认」切换默认模型。
 
 没有 API Key 的本地服务可以留空。API Key 使用安装密钥派生的 Fernet 加密后保存到数据库，API 响应只返回 `api_key_set` 和末尾提示，不返回明文。
 
@@ -102,12 +149,28 @@ reply = await core.model_gateway.chat(messages)
 ```http
 GET    /api/v1/providers
 GET    /api/v1/providers/catalog
+POST   /api/v1/providers/models
 POST   /api/v1/providers
 PATCH  /api/v1/providers/{id}
 DELETE /api/v1/providers/{id}
 POST   /api/v1/providers/{id}/default
 POST   /api/v1/providers/{id}/test
 ```
+
+`POST /api/v1/providers/models` 请求体：
+
+```json
+{
+  "provider_type": "openai_compatible",
+  "category": "chat",
+  "base_url": "https://api.openai.com/v1",
+  "api_key": "sk-...",
+  "provider_id": 1,
+  "options": {}
+}
+```
+
+传 `provider_id` 时可以不传 `api_key`，后端会解密已保存的密钥。接口失败时仍返回 200，通过 `message` 说明原因，`manual_allowed` 表示可以继续手动输入。
 
 创建示例：
 
@@ -137,22 +200,24 @@ curl -X POST http://127.0.0.1:6186/api/v1/providers \
 | --- | --- |
 | `category` | `chat` / `speech` / `image` |
 | `name` | 同一类型下唯一的显示名 |
-| `provider_type` | 当前为 `openai_compatible` |
+| `provider_type` | `openai_compatible` / `anthropic` / `google_gemini` / `azure_openai` / `elevenlabs` |
 | `base_url` | 接口根地址 |
 | `api_key_encrypted` | Fernet 密文 |
 | `model` | 模型名 |
 | `options` | 类型相关参数 JSON |
+| `capabilities` | 模型能力 JSON（输入/输出模态、工具、推理、上下文） |
 | `is_default` | 该类型默认模型 |
 | `enabled` | 是否参与加载 |
 | `last_test_*` | 最近一次连通性测试结果 |
 
-由于模型配置在数据库中，备份/迁移会自动携带，不需要额外操作。API Key 能否解密取决于 `config.json` 中的 JWT 密钥是否一起迁移；迁移时请完整导入备份。
+由于模型配置在数据库中，备份/迁移会自动携带，不需要额外操作。API Key 能否解密取决于 `config.json` 中的 JWT 密钥是否一起迁移；迁移时请完整导入备份。旧版本数据库启动时会自动执行 `ALTER TABLE model_providers ADD COLUMN capabilities` 补齐字段，已有配置仍然可用。
 
 ## 6. 当前限制
 
 - 原生适配器当前覆盖 Anthropic、Gemini、Azure OpenAI、ElevenLabs；其余厂商通过 OpenAI 兼容端点接入。
 - 百度文心、腾讯混元、讯飞星火等原生签名协议未单独实现，请使用其 OpenAI 兼容入口或自建网关。
 - Gemini 目前支持 Gemini Image（`gemini-2.5-flash-image`），暂未接入 Imagen `:predict` 与 Gemini TTS。
+- 部分供应商的 `/models` 只返回模型 ID，不返回模态；此时 `capabilities.source` 为 `heuristic`，按名称推断，用户仍可手动修改模型名后重新获取。
 - 连通性测试会发起真实请求，可能产生少量费用。
 - 主模型的流式输出、自动重试和多轮 Agent 循环仍在后续计划中。
 - 图片/语音工具每轮返回最近一次结果；多张图片可在 `GeneratedImage` 列表中扩展。

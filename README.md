@@ -151,6 +151,8 @@ MoriMobile 官方仓库：[an-shi/MoriAI-mobile](https://github.com/an-shi/MoriA
 
 所有配置使用 OpenAI 兼容接口或原生适配器。界面提供供应商预设，选择 OpenAI、DeepSeek、通义千问、Kimi、GLM、豆包、Gemini、Claude、Azure、ElevenLabs 等预设会自动填充接口地址与模型示例；也可以选择「自定义 / OpenAI 兼容」手动填写。API Key 使用安装密钥派生的 Fernet 加密存储，接口不会返回明文。
 
+模型名称通过供应商官方接口动态获取：填好 Base URL 和 API Key 后，点击模型输入框右侧的刷新按钮即可下拉选择，不再依赖代码里的固定列表。获取时还会记录模型能力（图片识别、工具调用、推理、上下文窗口），保存后显示在配置卡片上，对话层据此决定是否发送图片或工具。主模型还提供「平衡 / 精确 / 创意」参数预设，手动修改后自动切换为自定义。
+
 主模型会通过 `generate_speech` 和 `generate_image` 两个工具调用默认语音/图片模型；实现位于 `moribot/core/provider/gateway.py`，后续对话服务直接消费 `ModelGateway.chat()` 即可。详细说明见 [docs/models.md](docs/models.md)。
 
 ### 6. 数据迁移
@@ -250,6 +252,7 @@ uv run main.py --host 127.0.0.1 --port 8080 --data-dir ./my-data
 | GET | `/api/v1/system/backup/export` | 是 | 下载完整数据备份 |
 | GET | `/api/v1/providers` | 是 | 列出三类模型配置 |
 | GET | `/api/v1/providers/catalog` | 是 | 获取支持的适配器与供应商预设 |
+| POST | `/api/v1/providers/models` | 是 | 从供应商官方接口获取模型列表与能力 |
 | POST | `/api/v1/providers` | 是 | 创建模型配置 |
 | PATCH | `/api/v1/providers/{id}` | 是 | 更新模型配置（API Key 留空保持） |
 | DELETE | `/api/v1/providers/{id}` | 是 | 删除模型配置 |
