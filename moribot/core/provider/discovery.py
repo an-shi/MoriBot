@@ -74,6 +74,7 @@ _IMAGE_MARKERS = (
     "sdxl",
     "imagen",
 )
+_MINIMAX_RETIRED_PREFIXES = ("minimax-m2",)
 
 
 @dataclass(slots=True)
@@ -201,10 +202,46 @@ def _category_relevant(category: str, model_id: str) -> bool:
     return any(marker in lower for marker in _IMAGE_MARKERS)
 
 
-def _filter_models(category: str, models: list[ModelInfo]) -> list[ModelInfo]:
+def _filter_models(
+    category: str,
+    models: list[ModelInfo],
+    *,
+    provider_type: str = "",
+    fallback_to_all: bool = True,
+) -> list[ModelInfo]:
+    if provider_type == "minimax":
+        models = [
+            model for model in models if not model.id.lower().startswith(_MINIMAX_RETIRED_PREFIXES)
+        ]
     relevant = [model for model in models if _category_relevant(category, model.id)]
     # A custom gateway may expose names our heuristics do not recognise.
-    return relevant or models
+    if relevant:
+        return relevant
+    return models if fallback_to_all else []
+
+
+def _minimax_media_models(category: str) -> list[ModelInfo]:
+    """MiniMax's /models endpoint only lists chat models.
+
+    Speech and image endpoints are documented separately, so fall back to the
+    curated official model IDs when the live list has no media models.
+    """
+    from .catalog import PROVIDER_PRESETS
+
+    for preset in PROVIDER_PRESETS:
+        if preset.id not in {"minimax", "minimax-cn"}:
+            continue
+        model_ids = preset.models.get(category, ())
+        return [
+            ModelInfo(
+                id=model_id,
+                name=model_id,
+                capabilities=infer_capabilities(category, "minimax", model_id),
+                owned_by="minimax",
+            )
+            for model_id in model_ids
+        ]
+    return []
 
 
 def _openai_headers(api_key: str) -> dict[str, str]:
@@ -279,7 +316,7 @@ async def list_models(
                     owned_by=str(raw.get("type") or "anthropic"),
                 )
             )
-        return _filter_models(category, models)
+        return _filter_models(category, models, provider_type=provider_type)
 
     if provider_type == "google_gemini":
         data = await _get_json(
@@ -308,7 +345,7 @@ async def list_models(
                     owned_by="google",
                 )
             )
-        return _filter_models(category, models)
+        return _filter_models(category, models, provider_type=provider_type)
 
     if provider_type == "elevenlabs":
         data = await _get_json(
@@ -363,4 +400,15 @@ async def list_models(
                 owned_by=str(raw.get("owned_by") or ""),
             )
         )
-    return _filter_models(category, models)
+    if provider_type == "minimax" and category in (
+        ProviderCategory.SPEECH,
+        ProviderCategory.IMAGE,
+    ):
+        relevant = _filter_models(
+            category,
+            models,
+            provider_type=provider_type,
+            fallback_to_all=False,
+        )
+        return relevant or _minimax_media_models(category)
+    return _filter_models(category, models, provider_type=provider_type)

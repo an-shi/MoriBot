@@ -42,6 +42,8 @@ MoriBot 把模型分成三个固定角色，配置保存在数据库 `model_prov
 
 返回的列表会按当前角色过滤：主模型排除 embedding、TTS、图片生成等模型；语音模型只保留 TTS/语音模型；图片模型只保留图片生成模型。若供应商没有返回可识别列表，界面会提示失败原因并保留手动输入，不会阻塞保存。
 
+MiniMax 的 `/models` 接口会同时返回已下线的 `MiniMax-M2.x` 系列，MoriBot 会自动过滤；该接口只列出对话模型，因此语音/图片分类会回退到 MiniMax 官方当前支持的 `speech-2.8-*` 和 `MiniMax-H3-Image*` 模型。
+
 获取模型列表的同时会解析能力信息并写入 `capabilities`：
 
 ```json

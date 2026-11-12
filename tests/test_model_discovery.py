@@ -12,6 +12,21 @@ from moribot.core.provider.discovery import infer_capabilities, list_models
 
 class _ModelsHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
+        if self.path.startswith("/minimax/v1/models"):
+            self._json(
+                {
+                    "data": [
+                        {"id": "MiniMax-M3.1-Flash", "owned_by": "minimax"},
+                        {"id": "MiniMax-M3", "owned_by": "minimax"},
+                        {"id": "MiniMax-M2.7", "owned_by": "minimax"},
+                        {"id": "MiniMax-M2.7-highspeed", "owned_by": "minimax"},
+                        {"id": "MiniMax-M2.5", "owned_by": "minimax"},
+                        {"id": "MiniMax-M2.1", "owned_by": "minimax"},
+                        {"id": "MiniMax-M2", "owned_by": "minimax"},
+                    ]
+                }
+            )
+            return
         if self.path.startswith("/v1/models"):
             self._json(
                 {
@@ -164,3 +179,49 @@ def test_manual_capability_inference_still_reasonable():
     assert "image" in capabilities["input"]
     assert capabilities["tools"] is True
     assert capabilities["source"] == "heuristic"
+
+
+def test_discovery_filters_retired_minimax_models_and_falls_back_for_media():
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _ModelsHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base_url = f"http://127.0.0.1:{server.server_port}/minimax/v1"
+
+    async def run():
+        try:
+            chat = await list_models(
+                provider_type="minimax",
+                category="chat",
+                base_url=base_url,
+                api_key="test",
+            )
+            assert {model.id for model in chat} == {"MiniMax-M3.1-Flash", "MiniMax-M3"}
+
+            speech = await list_models(
+                provider_type="minimax",
+                category="speech",
+                base_url=base_url,
+                api_key="test",
+            )
+            assert {model.id for model in speech} == {
+                "speech-2.8-turbo",
+                "speech-2.8-hd",
+            }
+            assert speech[0].capabilities["output"] == ["audio"]
+
+            image = await list_models(
+                provider_type="minimax",
+                category="image",
+                base_url=base_url,
+                api_key="test",
+            )
+            assert {model.id for model in image} == {
+                "MiniMax-H3-Image",
+                "MiniMax-H3-Image-Highspeed",
+            }
+            assert image[0].capabilities["output"] == ["image"]
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+
+    asyncio.run(run())
