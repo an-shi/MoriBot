@@ -233,14 +233,16 @@ function applyParameterPreset(value: string): void {
   }
 }
 
-function applyModelCapabilities(value: string | null): void {
-  const option = modelOptions.value.find((item) => item.id === value)
+function applyModelCapabilities(value: unknown): void {
+  const modelId = textValue(value)
+  const option = modelOptions.value.find((item) => item.id === modelId)
   capabilities.value = option?.capabilities ?? null
 }
 
-function onModelChange(value: string | null): void {
-  model.value = value ?? ''
-  applyModelCapabilities(value)
+function onModelChange(value: unknown): void {
+  const modelId = textValue(value)
+  model.value = modelId
+  applyModelCapabilities(modelId)
 }
 
 async function fetchModels(): Promise<void> {
@@ -355,6 +357,20 @@ function numberOrUndefined(value: string | number): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
+function textValue(value: unknown): string {
+  if (typeof value === 'string') {
+    return value
+  }
+  if (typeof value === 'number') {
+    return String(value)
+  }
+  if (value && typeof value === 'object') {
+    const item = value as Record<string, unknown>
+    return String(item.id ?? item.value ?? item.title ?? '')
+  }
+  return ''
+}
+
 function buildOptions(): Record<string, unknown> {
   const options: Record<string, unknown> = {}
   if (providerType.value === 'azure_openai') {
@@ -366,22 +382,25 @@ function buildOptions(): Record<string, unknown> {
     if (temp !== undefined) options.temperature = temp
     if (tokens !== undefined) options.max_tokens = tokens
   } else if (activeCategory.value === 'speech') {
-    options.voice = voice.value.trim() || 'alloy'
+    options.voice = textValue(voice.value).trim() || 'alloy'
     options.response_format = audioFormat.value
     const spd = numberOrUndefined(speed.value)
     if (spd !== undefined) options.speed = spd
   } else {
-    options.size = imageSize.value.trim() || '1024x1024'
+    options.size = textValue(imageSize.value).trim() || '1024x1024'
     const count = numberOrUndefined(imageCount.value)
     if (count !== undefined) options.n = count
-    if (imageQuality.value) options.quality = imageQuality.value
+    if (textValue(imageQuality.value)) options.quality = textValue(imageQuality.value)
     if (responseFormat.value) options.response_format = responseFormat.value
   }
   return options
 }
 
 async function save(): Promise<void> {
-  if (!name.value.trim() || !baseUrl.value.trim() || !model.value.trim()) {
+  const nameValue = textValue(name.value).trim()
+  const baseUrlValue = textValue(baseUrl.value).trim()
+  const modelValue = textValue(model.value).trim()
+  if (!nameValue || !baseUrlValue || !modelValue) {
     errorMessage.value = t('providers.dialog.required')
     return
   }
@@ -392,27 +411,28 @@ async function save(): Promise<void> {
     let result: ModelProvider
     if (isEdit.value && props.provider) {
       const payload: ProviderUpdatePayload = {
-        name: name.value.trim(),
+        name: nameValue,
         provider_type: providerType.value,
-        base_url: baseUrl.value.trim(),
-        model: model.value.trim(),
+        base_url: baseUrlValue,
+        model: modelValue,
         options: buildOptions(),
         capabilities: capabilities.value ?? undefined,
         is_default: isDefault.value,
         enabled: enabled.value,
       }
-      if (apiKey.value.trim()) {
-        payload.api_key = apiKey.value.trim()
+      const apiKeyValue = textValue(apiKey.value).trim()
+      if (apiKeyValue) {
+        payload.api_key = apiKeyValue
       }
       result = await providersApi.update(props.provider.id, payload)
     } else {
       const payload: ProviderPayload = {
         category: activeCategory.value,
-        name: name.value.trim(),
+        name: nameValue,
         provider_type: providerType.value,
-        base_url: baseUrl.value.trim(),
-        api_key: apiKey.value.trim(),
-        model: model.value.trim(),
+        base_url: baseUrlValue,
+        api_key: textValue(apiKey.value).trim(),
+        model: modelValue,
         options: buildOptions(),
         capabilities: capabilities.value ?? undefined,
         is_default: isDefault.value,
@@ -540,6 +560,7 @@ async function save(): Promise<void> {
                 :items="modelOptions"
                 item-title="id"
                 item-value="id"
+                :return-object="false"
                 variant="outlined"
                 density="comfortable"
                 hide-details="auto"
@@ -636,6 +657,7 @@ async function save(): Promise<void> {
                 <v-combobox
                   v-model="voice"
                   :items="['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']"
+                  :return-object="false"
                   variant="outlined"
                   density="comfortable"
                   hide-details="auto"
@@ -677,6 +699,7 @@ async function save(): Promise<void> {
                 <v-combobox
                   v-model="imageSize"
                   :items="imageSizes"
+                  :return-object="false"
                   variant="outlined"
                   density="comfortable"
                   hide-details="auto"
@@ -688,6 +711,7 @@ async function save(): Promise<void> {
                 <v-combobox
                   v-model="imageQuality"
                   :items="imageQualities"
+                  :return-object="false"
                   variant="outlined"
                   density="comfortable"
                   hide-details="auto"
