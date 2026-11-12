@@ -81,3 +81,29 @@ export interface ProviderTestResult {
   latency_ms: number
   preview: string
 }
+
+export interface ProviderTypeInfo {
+  id: string
+  name: string
+  description: string
+  categories: ProviderCategory[]
+  default_base_url: string
+  api_key_required: boolean
+  docs_url: string
+}
+
+export interface ProviderPreset {
+  id: string
+  name: string
+  provider_type: string
+  categories: ProviderCategory[]
+  base_url: string
+  models: Partial<Record<ProviderCategory, string[]>>
+  docs_url: string
+  api_key_required: boolean
+}
+
+export interface ProviderCatalog {
+  types: ProviderTypeInfo[]
+  presets: ProviderPreset[]
+}

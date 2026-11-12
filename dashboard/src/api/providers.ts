@@ -2,6 +2,7 @@ import { http } from './http'
 import type {
   ApiResponse,
   ModelProvider,
+  ProviderCatalog,
   ProviderCategory,
   ProviderTestResult,
 } from '@/types/api'
@@ -9,7 +10,7 @@ import type {
 export interface ProviderPayload {
   category: ProviderCategory
   name: string
-  provider_type: 'openai_compatible'
+  provider_type: string
   base_url: string
   api_key: string
   model: string
@@ -21,6 +22,11 @@ export interface ProviderPayload {
 export type ProviderUpdatePayload = Partial<Omit<ProviderPayload, 'category'>>
 
 export const providersApi = {
+  async catalog(): Promise<ProviderCatalog> {
+    const response = await http.get<ApiResponse<ProviderCatalog>>('/providers/catalog')
+    return response.data.data
+  },
+
   async list(): Promise<ModelProvider[]> {
     const response = await http.get<ApiResponse<ModelProvider[]>>('/providers')
     return response.data.data

@@ -4,12 +4,19 @@ import { useI18n } from 'vue-i18n'
 
 import { extractErrorMessage } from '@/api/http'
 import { providersApi, type ProviderPayload, type ProviderUpdatePayload } from '@/api/providers'
-import type { ModelProvider, ProviderCategory } from '@/types/api'
+import type {
+  ModelProvider,
+  ProviderCatalog,
+  ProviderCategory,
+  ProviderPreset,
+  ProviderTypeInfo,
+} from '@/types/api'
 
 const props = defineProps<{
   modelValue: boolean
   category: ProviderCategory
   provider: ModelProvider | null
+  catalog: ProviderCatalog
 }>()
 
 const emit = defineEmits<{
@@ -19,10 +26,61 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
+const fallbackTypes: ProviderTypeInfo[] = [
+  {
+    id: 'openai_compatible',
+    name: 'OpenAI Compatible',
+    description: '',
+    categories: ['chat', 'speech', 'image'],
+    default_base_url: '',
+    api_key_required: true,
+    docs_url: '',
+  },
+  {
+    id: 'azure_openai',
+    name: 'Azure OpenAI',
+    description: '',
+    categories: ['chat', 'speech', 'image'],
+    default_base_url: 'https://your-resource.openai.azure.com',
+    api_key_required: true,
+    docs_url: '',
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic Claude',
+    description: '',
+    categories: ['chat'],
+    default_base_url: 'https://api.anthropic.com/v1',
+    api_key_required: true,
+    docs_url: '',
+  },
+  {
+    id: 'google_gemini',
+    name: 'Google Gemini',
+    description: '',
+    categories: ['chat', 'image'],
+    default_base_url: 'https://generativelanguage.googleapis.com/v1beta',
+    api_key_required: true,
+    docs_url: '',
+  },
+  {
+    id: 'elevenlabs',
+    name: 'ElevenLabs',
+    description: '',
+    categories: ['speech'],
+    default_base_url: 'https://api.elevenlabs.io/v1',
+    api_key_required: true,
+    docs_url: '',
+  },
+]
+
 const name = ref('')
 const baseUrl = ref('')
 const apiKey = ref('')
 const model = ref('')
+const providerType = ref('openai_compatible')
+const presetId = ref('')
+const apiVersion = ref('2024-10-21')
 const isDefault = ref(false)
 const enabled = ref(true)
 const errorMessage = ref('')
@@ -48,14 +106,78 @@ const activeCategory = computed<ProviderCategory>(
   () => props.provider?.category ?? props.category,
 )
 const categoryLabel = computed(() => t(`providers.categories.${activeCategory.value}.title`))
-const modelPlaceholder = computed(() =>
-  t(`providers.dialog.modelPlaceholder${activeCategory.value === 'chat' ? 'Chat' : activeCategory.value === 'speech' ? 'Speech' : 'Image'}`),
+const providerTypes = computed(() =>
+  (props.catalog.types.length ? props.catalog.types : fallbackTypes).filter((item) =>
+    item.categories.includes(activeCategory.value),
+  ),
 )
+const presetsForCategory = computed(() =>
+  props.catalog.presets.filter((preset) => preset.categories.includes(activeCategory.value)),
+)
+const presetItems = computed(() => [
+  { id: '', name: t('providers.dialog.custom') },
+  ...presetsForCategory.value.map((preset) => ({ id: preset.id, name: preset.name })),
+])
+const selectedPreset = computed<ProviderPreset | null>(
+  () => presetsForCategory.value.find((preset) => preset.id === presetId.value) ?? null,
+)
+const selectedType = computed<ProviderTypeInfo | null>(
+  () => providerTypes.value.find((item) => item.id === providerType.value) ?? null,
+)
+const apiKeyRequired = computed(
+  () => selectedPreset.value?.api_key_required ?? selectedType.value?.api_key_required ?? true,
+)
+const modelPlaceholder = computed(() => {
+  const presetModels = selectedPreset.value?.models[activeCategory.value]
+  if (presetModels?.length) {
+    return presetModels[0]
+  }
+  return t(
+    `providers.dialog.modelPlaceholder${
+      activeCategory.value === 'chat'
+        ? 'Chat'
+        : activeCategory.value === 'speech'
+          ? 'Speech'
+          : 'Image'
+    }`,
+  )
+})
 
 const speechFormats = ['mp3', 'wav', 'opus', 'aac', 'flac']
 const imageSizes = ['1024x1024', '1024x1536', '1536x1024', '512x512', '256x256']
 const imageQualities = ['auto', 'high', 'medium', 'low', 'standard', 'hd']
 const responseFormats = ['', 'b64_json', 'url']
+
+function applyPreset(id: string): void {
+  presetId.value = id
+  const preset = presetsForCategory.value.find((item) => item.id === id)
+  if (!preset) {
+    return
+  }
+  providerType.value = preset.provider_type
+  baseUrl.value = preset.base_url
+  if (!name.value.trim()) {
+    name.value = preset.name
+  }
+  const models = preset.models[activeCategory.value] || []
+  if (!model.value.trim() && models.length) {
+    model.value = models[0]
+  }
+  if (preset.provider_type === 'elevenlabs' && (!voice.value || voice.value === 'alloy')) {
+    voice.value = '21m00Tcm4TlvDq8ikWAM'
+  }
+}
+
+function applyType(id: string): void {
+  providerType.value = id
+  const spec = providerTypes.value.find((item) => item.id === id)
+  if (spec?.default_base_url && !baseUrl.value.trim()) {
+    baseUrl.value = spec.default_base_url
+  }
+  if (id === 'elevenlabs' && (!voice.value || voice.value === 'alloy')) {
+    voice.value = '21m00Tcm4TlvDq8ikWAM'
+  }
+}
 
 function resetForm(): void {
   const provider = props.provider
@@ -63,24 +185,33 @@ function resetForm(): void {
   baseUrl.value = provider?.base_url ?? ''
   apiKey.value = ''
   model.value = provider?.model ?? ''
+  providerType.value = provider?.provider_type ?? 'openai_compatible'
   isDefault.value = provider?.is_default ?? false
   enabled.value = provider?.enabled ?? true
   errorMessage.value = ''
 
   const options = (provider?.options ?? {}) as Record<string, unknown>
+  apiVersion.value = String(options.api_version ?? '2024-10-21')
   temperature.value = (options.temperature as string | number) ?? ''
   maxTokens.value = (options.max_tokens as string | number) ?? ''
-  voice.value = String(options.voice ?? 'alloy')
+  voice.value = String(options.voice ?? (providerType.value === 'elevenlabs' ? '21m00Tcm4TlvDq8ikWAM' : 'alloy'))
   audioFormat.value = String(options.response_format ?? 'mp3')
   speed.value = (options.speed as string | number) ?? ''
   imageSize.value = String(options.size ?? '1024x1024')
   imageQuality.value = String(options.quality ?? '')
   imageCount.value = (options.n as string | number) ?? 1
   responseFormat.value = String(options.response_format ?? '')
+
+  const matchedPreset = presetsForCategory.value.find(
+    (preset) =>
+      preset.provider_type === providerType.value &&
+      preset.base_url === baseUrl.value,
+  )
+  presetId.value = matchedPreset?.id ?? ''
 }
 
 watch(
-  () => [props.modelValue, props.provider, props.category] as const,
+  () => [props.modelValue, props.provider, props.category, props.catalog] as const,
   ([open]) => {
     if (open) {
       resetForm()
@@ -99,6 +230,9 @@ function numberOrUndefined(value: string | number): number | undefined {
 
 function buildOptions(): Record<string, unknown> {
   const options: Record<string, unknown> = {}
+  if (providerType.value === 'azure_openai') {
+    options.api_version = apiVersion.value.trim() || '2024-10-21'
+  }
   if (activeCategory.value === 'chat') {
     const temp = numberOrUndefined(temperature.value)
     const tokens = numberOrUndefined(maxTokens.value)
@@ -132,6 +266,7 @@ async function save(): Promise<void> {
     if (isEdit.value && props.provider) {
       const payload: ProviderUpdatePayload = {
         name: name.value.trim(),
+        provider_type: providerType.value,
         base_url: baseUrl.value.trim(),
         model: model.value.trim(),
         options: buildOptions(),
@@ -146,7 +281,7 @@ async function save(): Promise<void> {
       const payload: ProviderPayload = {
         category: activeCategory.value,
         name: name.value.trim(),
-        provider_type: 'openai_compatible',
+        provider_type: providerType.value,
         base_url: baseUrl.value.trim(),
         api_key: apiKey.value.trim(),
         model: model.value.trim(),
@@ -187,6 +322,20 @@ async function save(): Promise<void> {
         <v-form @submit.prevent="save">
           <div class="form-row form-row--two">
             <div class="field">
+              <label>{{ t('providers.dialog.preset') }}</label>
+              <v-select
+                v-model="presetId"
+                :items="presetItems"
+                item-title="name"
+                item-value="id"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+                :placeholder="t('providers.dialog.presetPlaceholder')"
+                @update:model-value="applyPreset"
+              />
+            </div>
+            <div class="field">
               <label>{{ t('providers.dialog.name') }}</label>
               <v-text-field
                 v-model="name"
@@ -196,29 +345,44 @@ async function save(): Promise<void> {
                 :placeholder="t('providers.dialog.namePlaceholder')"
               />
             </div>
+          </div>
+
+          <div class="form-row form-row--two">
             <div class="field">
               <label>{{ t('providers.dialog.providerType') }}</label>
-              <v-text-field
-                model-value="OpenAI Compatible"
+              <v-select
+                v-model="providerType"
+                :items="providerTypes"
+                item-title="name"
+                item-value="id"
                 variant="outlined"
                 density="comfortable"
                 hide-details="auto"
-                readonly
-                persistent-hint
-                :hint="t('providers.dialog.providerTypeHint')"
+                @update:model-value="applyType"
+              />
+            </div>
+            <div class="field">
+              <label>{{ t('providers.dialog.baseUrl') }}</label>
+              <v-text-field
+                v-model="baseUrl"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+                :placeholder="t('providers.dialog.baseUrlPlaceholder')"
+                prepend-inner-icon="mdi-api"
               />
             </div>
           </div>
+          <p class="field-hint">{{ t('providers.dialog.providerTypeHint') }}</p>
 
-          <div class="field">
-            <label>{{ t('providers.dialog.baseUrl') }}</label>
+          <div v-if="providerType === 'azure_openai'" class="field">
+            <label>{{ t('providers.dialog.apiVersion') }}</label>
             <v-text-field
-              v-model="baseUrl"
+              v-model="apiVersion"
               variant="outlined"
               density="comfortable"
               hide-details="auto"
-              :placeholder="t('providers.dialog.baseUrlPlaceholder')"
-              prepend-inner-icon="mdi-api"
+              :placeholder="t('providers.dialog.apiVersionHint')"
             />
           </div>
 

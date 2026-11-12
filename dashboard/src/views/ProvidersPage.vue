@@ -5,12 +5,13 @@ import { useI18n } from 'vue-i18n'
 import { extractErrorMessage } from '@/api/http'
 import { providersApi } from '@/api/providers'
 import ProviderDialog from '@/components/ProviderDialog.vue'
-import type { ModelProvider, ProviderCategory } from '@/types/api'
+import type { ModelProvider, ProviderCatalog, ProviderCategory } from '@/types/api'
 import { formatDateTime } from '@/utils/format'
 
 const { t, locale } = useI18n()
 
 const providers = ref<ModelProvider[]>([])
+const catalog = ref<ProviderCatalog>({ types: [], presets: [] })
 const loading = ref(false)
 const errorMessage = ref('')
 const dialogOpen = ref(false)
@@ -45,6 +46,14 @@ async function loadProviders(): Promise<void> {
     errorMessage.value = `${t('providers.loadFailed')}: ${extractErrorMessage(error)}`
   } finally {
     loading.value = false
+  }
+}
+
+async function loadCatalog(): Promise<void> {
+  try {
+    catalog.value = await providersApi.catalog()
+  } catch {
+    // The dialog still works with the built-in provider type fallback.
   }
 }
 
@@ -121,6 +130,7 @@ function testState(provider: ModelProvider): string {
 }
 
 onMounted(() => {
+  void loadCatalog()
   void loadProviders()
 })
 </script>
@@ -288,6 +298,7 @@ onMounted(() => {
       v-model="dialogOpen"
       :category="dialogCategory"
       :provider="editingProvider"
+      :catalog="catalog"
       @saved="handleSaved"
     />
   </div>
