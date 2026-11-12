@@ -105,6 +105,23 @@ select {
   font-family: inherit !important;
 }
 
+/*
+ * Vuetify tooltips are teleported outside .v-application, so they do not
+ * inherit the themed text color. Give every tooltip an explicit readable
+ * surface in both dark and light themes.
+ */
+.v-overlay.v-tooltip > .v-overlay__content {
+  padding: 6px 10px !important;
+  border: 1px solid var(--mori-line) !important;
+  border-radius: 8px !important;
+  background: var(--mori-panel-2) !important;
+  box-shadow: var(--mori-shadow);
+  color: var(--mori-text) !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  opacity: 1 !important;
+}
+
 .mori-muted {
   color: var(--mori-muted);
 }
