@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.venv*/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+
+# Runtime data
+data/*
+!data/.gitkeep
+data.pre-import-*/
+*.db
+*.db-wal
+*.db-shm
+moribot-backup-*.zip
+
+# Local configuration
+.env
+.env.local
+
+# Dashboard
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.vite/
+dashboard/*.tsbuildinfo
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
