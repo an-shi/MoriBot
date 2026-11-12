@@ -1,16 +1,18 @@
 # MoriMobile 网关设计
 
-MoriMobile 是手机端应用（当前仓库只包含服务端网关）。目标是在手机不处于家庭局域网、家庭服务器位于 NAT 后面时，仍然可以双向传递消息。
+MoriMobile 是 MoriBot 的官方手机客户端，仓库：[an-shi/MoriAI-mobile](https://github.com/an-shi/MoriAI-mobile)。本仓库只包含服务端后台，不包含手机 App。MoriBot 不计划接入 QQ、Telegram、Discord 等第三方 IM。
+
+目标是在手机不处于家庭局域网、家庭服务器位于 NAT 后面时，仍然可以双向传递消息，并为手机提供常规业务接口。
 
 ## 1. 连接方向
 
 ```text
-┌────────────┐        HTTPS 配对         ┌──────────────────────┐
-│ MoriMobile │ ────────────────────────► │ POST /api/v1/mobile/  │
-│  手机 App  │ ◄──────────────────────── │ pair                 │
-└─────┬──────┘       设备令牌             └──────────────────────┘
+┌────────────┐    HTTPS 配对 / 业务 API    ┌──────────────────────────┐
+│ MoriMobile │ ──────────────────────────► │ /api/v1/mobile/pair      │
+│  手机 App  │ ◄────────────────────────── │ /api/v1/mobile/app/*     │
+└─────┬──────┘        设备令牌              └──────────────────────────┘
       │
-      │ 出站 WSS + Bearer device token
+      │ 出站 WSS + Bearer device token（仅实时聊天/推送）
       ▼
 ┌──────────────────────────────────────────────────────────────┐
 │ MoriBot                                                      │
@@ -21,9 +23,10 @@ MoriMobile 是手机端应用（当前仓库只包含服务端网关）。目标
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- 手机始终作为 WebSocket 客户端主动连接。
-- 服务端不需要保存手机公网 IP，也不主动拨号到手机。
-- 一条连接同时承载上行消息、下行消息、心跳和撤销通知。
+- 手机始终作为客户端主动连接；服务端不主动拨号到手机。
+- 常规业务走 HTTPS JSON API，实时聊天、流式回复和推送走 WSS。
+- 服务端不需要保存手机公网 IP；家庭网络可通过隧道暴露一个 HTTPS/WSS 入口。
+- 一条 WebSocket 连接承载上行消息、下行消息、心跳和撤销通知。
 
 ## 2. 配对协议
 
@@ -91,7 +94,41 @@ Content-Type: application/json
 - 失败按 IP 限流（5 次 / 60 秒，锁定 120 秒）。
 - 达到 `mobile.max_devices` 后拒绝新设备。
 
-### 2.3 设备管理
+### 2.3 设备 HTTP 业务接口
+
+常规业务接口使用设备令牌认证，与后台管理 JWT 完全分离：
+
+```http
+GET /api/v1/mobile/app/me
+Authorization: Bearer mm_...
+```
+
+响应包含当前设备、绑定账户、服务端版本和协议版本：
+
+```json
+{
+  "status": "ok",
+  "data": {
+    "device": {
+      "id": "03e6779c-d36f-4d3d-b9b2-a097680a092b",
+      "name": "Pixel 9",
+      "online": true
+    },
+    "user": {
+      "id": 1,
+      "username": "admin",
+      "display_name": "Administrator",
+      "role": "admin"
+    },
+    "server_version": "0.1.0",
+    "protocol": 1
+  }
+}
+```
+
+后续会话列表、历史记录、模型设置、文件上传等接口统一放在 `/api/v1/mobile/app/*`，后端依赖 `get_mobile_auth_context`。后台 JWT 不能用于这些接口，设备令牌也不能用于后台管理接口。
+
+### 2.4 设备管理（后台 JWT）
 
 ```http
 GET  /api/v1/mobile/devices
@@ -113,7 +150,9 @@ Content-Type: application/json
 
 撤销后服务端会向该设备的 WebSocket 发送 `revoked`，随后以 `4001` 关闭连接。
 
-## 3. WebSocket 协议
+## 3. WebSocket 实时通道协议
+
+WebSocket 只承载实时聊天、流式输出、ACK、心跳和推送；设备信息、历史记录、设置等常规业务使用上文的 HTTPS API。
 
 ### 3.1 连接
 
@@ -212,9 +251,10 @@ MoriEvent(
 
 - 配对码生成：需要后台 JWT。
 - 设备接入：需要高熵设备令牌，数据库只存哈希。
+- **HTTP 业务接口**：`/api/v1/mobile/app/*` 只接受设备令牌；后台 JWT 与设备令牌不互通。
 - 浏览器 Origin：若带 Origin 头，必须匹配 `cors_origins`、`public_url` 或当前 Host。
-- 撤销：数据库立即失效 + WebSocket 强制关闭。
-- 传输：生产环境必须使用 WSS（由反向代理或隧道终止 TLS）。
+- 撤销：数据库立即失效 + WebSocket 强制关闭，后续 HTTP 请求同样被拒绝。
+- 传输：生产环境必须使用 HTTPS/WSS（由反向代理或隧道终止 TLS）。
 - 消息大小：服务端和客户端都应限制，避免内存放大攻击。
 
 ## 5. 当前限制与后续演进
@@ -222,4 +262,5 @@ MoriEvent(
 - 设备离线时消息不排队；后续可以加持久化离线队列。
 - 目前回复链路依赖后续的 Provider/Agent 阶段；网关本身已经完成上下行和事件接入。
 - 暂未实现端到端加密，依赖 TLS；原因见部署文档。
-- 未来可以增加设备级消息历史、推送通知（APNs/FCM）、多用户和二维码配对页面。
+- 未来可以增加设备级消息历史、推送通知（APNs/FCM）和二维码配对页面。
+- 不计划支持 QQ、Telegram、Discord 等第三方平台；MoriMobile 是唯一官方客户端。

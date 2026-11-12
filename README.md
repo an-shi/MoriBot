@@ -1,13 +1,16 @@
 # MoriBot
 
-MoriBot 是一个受 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 架构启发的 **AI 助手后台控制器**。它把「平台接入 / 模型服务 / 消息管道 / 插件扩展」拆成清晰的模块，用一个统一的 Web 控制台管理智能体。
+MoriBot 是一个受 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 架构启发的 **AI 助手后台控制器**，并与官方手机端 [MoriMobile](https://github.com/an-shi/MoriAI-mobile) 配套使用。它把「模型服务 / 消息管道 / 插件扩展 / MoriMobile 通信」拆成清晰的模块，用一个统一的 Web 控制台管理智能体。
+
+MoriBot 的产品目标不是做多平台聊天机器人网关，**不计划接入 QQ、Telegram、Discord 等第三方 IM**。手机端只支持 MoriMobile。
 
 当前版本是基础架构版本（v0.1.0），已经包含：
 
 - 可扩展的核心生命周期与依赖装配
 - 异步事件总线 + 洋葱模型消息管道
-- 平台适配器、模型提供方、插件系统的抽象层
+- 以 [MoriMobile](https://github.com/an-shi/MoriAI-mobile) 为唯一官方手机客户端
 - 内建 MoriMobile 安全网关：设备配对、设备令牌、WebSocket 上下行、设备撤销
+- MoriMobile 业务接口走 HTTPS JSON API，实时聊天走加密 WSS
 - SQLite 数据库与管理员账户
 - JWT 登录、密码哈希、登录限流、反向代理/TLS 支持
 - 一键数据导出 / 导入，运行数据可整体迁移
@@ -42,7 +45,7 @@ MoriBot/
 │   │   ├── db/                 # 数据库接口、模型与 SQLite 实现
 │   │   ├── event/              # 归一化事件模型与异步事件总线
 │   │   ├── pipeline/           # Stage 基类、注册表与调度器
-│   │   ├── platform/           # 平台适配器抽象、MoriMobile 网关
+│   │   ├── platform/           # 内部平台抽象、MoriMobile 网关
 │   │   ├── provider/           # 模型提供方抽象与管理器
 │   │   ├── plugin/             # 插件基类与文件系统加载器
 │   │   ├── backup.py           # 可验证的数据导出/导入
@@ -117,6 +120,8 @@ pnpm build
 构建产物位于 `dashboard/dist`。重新启动后端后，访问 `http://127.0.0.1:6186` 即可看到控制台。
 
 ### 4. 连接 MoriMobile
+
+MoriMobile 官方仓库：[an-shi/MoriAI-mobile](https://github.com/an-shi/MoriAI-mobile)
 
 1. 登录后台，点击首页右上角「连接 MoriMobile」。
 2. 点击「生成配对码」，得到 8 位配对码和 `morimobile://` 配对链接。
@@ -224,6 +229,7 @@ uv run main.py --host 127.0.0.1 --port 8080 --data-dir ./my-data
 | GET | `/api/v1/system/backup/export` | 是 | 下载完整数据备份 |
 | POST | `/api/v1/mobile/pairing-code` | 是 | 生成一次性 MoriMobile 配对码 |
 | POST | `/api/v1/mobile/pair` | 否（配对码） | 手机兑换设备令牌 |
+| GET | `/api/v1/mobile/app/me` | 设备令牌 | 校验设备并返回设备/账户信息 |
 | GET | `/api/v1/mobile/devices` | 是 | 已配对设备 |
 | POST | `/api/v1/mobile/devices/{id}/message` | 是 | 从控制台向在线设备发送消息 |
 | POST | `/api/v1/mobile/devices/{id}/revoke` | 是 | 撤销设备并强制下线 |
@@ -236,6 +242,17 @@ Authorization: Bearer <access_token>
 ```
 
 MoriMobile 的设备令牌通过 `Authorization: Bearer <device_token>` 或 `X-Mori-Device-Token` 传递。
+
+### HTTP 与 WSS 的分工
+
+MoriMobile 使用两条独立通道：
+
+| 通道 | 用途 | 认证 |
+| --- | --- | --- |
+| HTTPS JSON API | 配对、设备信息、后续的会话列表、历史记录、模型设置、文件上传等常规业务 | 设备令牌（`/mobile/app/*`）或后台 JWT（管理接口） |
+| WSS `/api/v1/mobile/ws` | 实时聊天、流式回复、服务端推送、心跳、ACK | 设备令牌 |
+
+底层 `EventBus`、`Pipeline` 和业务 Service 不依赖传输方式。新增业务能力时优先加 HTTP 接口；只有需要实时推送或流式传输时才走 WSS，不要把 CRUD 请求塞进 WebSocket。
 
 ## 国际化
 
@@ -282,9 +299,27 @@ class EchoProvider(Provider):
 core.provider_manager.register(EchoProvider("echo-1", model="echo"))
 ```
 
-### 新增平台适配器
+### 新增 MoriMobile HTTP 业务接口
 
-继承 `moribot.core.platform.PlatformAdapter`，实现 `start()`、`stop()` 与 `send_message()`，把平台消息转换为 `MoriEvent` 后投递到 `event_bus`，再注册到 `PlatformManager`。
+MoriMobile 的常规业务接口应放在 `/api/v1/mobile/app/*` 下，并依赖设备认证上下文：
+
+```python
+from fastapi import APIRouter, Depends
+
+from moribot.dashboard.deps import MobileAuthContext, get_mobile_auth_context
+
+router = APIRouter(prefix="/mobile/app", tags=["mobile-app"])
+
+
+@router.get("/conversations")
+async def list_conversations(
+    auth: MobileAuthContext = Depends(get_mobile_auth_context),
+):
+    # auth.device 是当前设备，auth.user 是设备绑定的账户
+    ...
+```
+
+后台管理接口继续使用 `get_current_user`（JWT），手机端业务接口使用 `get_mobile_auth_context`（设备令牌），两种认证不会混用。只有实时聊天、流式输出和推送才使用 WSS。
 
 ### 编写插件
 
@@ -338,7 +373,7 @@ pnpm build
 
 - [ ] 会话与消息历史
 - [ ] OpenAI / Anthropic / Gemini 等模型提供方
-- [ ] QQ、Telegram、Discord、WebChat 等平台适配器
+- [ ] MoriMobile 业务 API 与多端同步
 - [ ] 插件管理页与插件市场
 - [ ] 实时日志控制台
 - [ ] 可视化配置编辑与模型连通性测试

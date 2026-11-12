@@ -1,12 +1,12 @@
 # MoriBot 架构说明
 
-本文描述 MoriBot v0.1.0 的基础架构。设计目标不是复刻 AstrBot 的全部功能，而是借鉴它「核心生命周期 + 事件总线 + 管道 + 平台/模型抽象 + 插件」的分层方式，先建立一个可以持续生长的骨架。
+本文描述 MoriBot v0.1.0 的基础架构。MoriBot 是 [MoriMobile](https://github.com/an-shi/MoriAI-mobile) 的配套后台，产品范围不包含 QQ、Telegram、Discord 等第三方 IM 接入。设计目标不是复刻 AstrBot 的全部功能，而是借鉴它「核心生命周期 + 事件总线 + 管道 + 模型抽象 + 插件」的分层方式，先建立一个可以持续生长的骨架。
 
 ## 1. 设计原则
 
-- **模块边界清晰**：平台、模型、消息管道、插件、Web 控制台各自独立。
-- **异步优先**：消息接收、模型调用、日志分发都基于 `asyncio`，慢操作不阻塞平台读取。
-- **接口先于实现**：`Provider`、`PlatformAdapter`、`Stage`、`MoriPlugin` 都是抽象层，后续接入具体实现时不需要改动核心。
+- **模块边界清晰**：MoriMobile 网关、模型、消息管道、插件、Web 控制台各自独立。
+- **异步优先**：消息接收、模型调用、日志分发都基于 `asyncio`，慢操作不阻塞手机连接。
+- **接口先于实现**：`Provider`、`PlatformAdapter`、`Stage`、`MoriPlugin` 都是内部抽象层；平台层只为 MoriMobile 服务，不作为第三方 IM 扩展点。
 - **默认安全**：首次启动生成随机管理员密码；密码使用 PBKDF2-SHA256 加盐存储；JWT 密钥随机生成并持久化；登录失败有限流。
 - **KISS**：当前只保留真正被使用的代码，不提前引入向量数据库、工作流引擎或复杂插件市场。
 
@@ -17,10 +17,11 @@
 │                        Vue 3 Dashboard                      │
 │  LoginPage / DefaultLayout / HomePage / Pinia / Router      │
 └───────────────────────────┬─────────────────────────────────┘
-                            │ /api/v1/*  (JSON + JWT)
+                            │ HTTPS /api/v1/* (JWT)
 ┌───────────────────────────▼─────────────────────────────────┐
 │                     FastAPI Dashboard                       │
-│  routes/auth  routes/system  services/auth  deps  schemas   │
+│  routes/auth  routes/system  routes/mobile  services/deps   │
+│  管理 API + MoriMobile HTTPS API + WSS 网关                 │
 │  静态 SPA 托管 + 统一响应信封 + 异常处理 + 登录限流           │
 └───────────────────────────┬─────────────────────────────────┘
                             │ app.state.core
@@ -30,8 +31,8 @@
 └──────┬──────────────┬──────────────┬──────────────┬─────────┘
        │              │              │              │
 ┌──────▼─────┐ ┌──────▼─────┐ ┌──────▼─────┐ ┌──────▼──────┐
-│ EventBus   │ │  Pipeline  │ │  Providers │ │  Platforms  │
-│ asyncio    │ │ Stage 1..N │ │  registry  │ │  adapters   │
+│ EventBus   │ │  Pipeline  │ │  Providers │ │ MoriMobile  │
+│ asyncio    │ │ Stage 1..N │ │  registry  │ │  adapter    │
 │ queue      │ │ onion model│ │            │ │             │
 └──────┬─────┘ └──────┬─────┘ └────────────┘ └──────┬──────┘
        │              │                              │
@@ -51,7 +52,7 @@
 | `moribot/core/db/` | `BaseDatabase` 抽象、SQLModel 表、SQLite 实现 |
 | `moribot/core/event/` | `MoriEvent` 归一化事件、异步事件总线 |
 | `moribot/core/pipeline/` | `Stage` 契约、注册表、洋葱模型调度器、内置阶段 |
-| `moribot/core/platform/` | 平台适配器抽象、生命周期管理、MoriMobile 网关适配器 |
+| `moribot/core/platform/` | 内部平台抽象、MoriMobile 网关适配器 |
 | `moribot/core/provider/` | 模型提供方抽象与默认选择 |
 | `moribot/core/plugin/` | 插件基类、`PluginContext` 协议、文件系统加载器 |
 | `moribot/core/accounts.py` | 首次启动管理员账户、密码重置、凭据文件 |
@@ -78,7 +79,7 @@
    - 初始化管道阶段；
    - 加载 `data/plugins/*/plugin.py`；
    - 启动事件总线；
-   - 启动所有平台适配器（当前为空）；
+   - 启动 MoriMobile 网关适配器；
    - 标记运行状态。
 8. 关闭时按相反顺序停止总线、平台、插件、Provider 和数据库。
 
@@ -109,9 +110,21 @@ Authorization: Bearer <token>
 
 后端 `get_current_user` 统一校验签名、过期时间、账户状态和 `token_version`。修改密码会递增 `token_version`，使旧 token 立即失效。
 
+### 5.1 两类认证主体
+
+MoriBot 有意区分后台用户与手机设备：
+
+| 调用方 | 认证方式 | 依赖 | 典型接口 |
+| --- | --- | --- | --- |
+| Web 控制台 | 管理员 JWT | `get_current_user` | 登录、系统信息、生成配对码、设备管理、数据导出 |
+| MoriMobile | 设备令牌 | `get_mobile_auth_context` | `/api/v1/mobile/app/*` 常规业务接口、WSS |
+| 未配对手机 | 一次性配对码 | 无（限流） | `POST /api/v1/mobile/pair` |
+
+`/api/v1/mobile/app/me` 是当前提供的设备 HTTP 认证示例，手机可以用它校验令牌并获取设备与账户信息。后续会话列表、历史记录、模型设置、文件上传等业务接口应统一放在 `/api/v1/mobile/app/*` 下，依赖 `MobileAuthContext`。后台 JWT 与设备令牌不能互相替代。
+
 ## 6. 消息事件流
 
-MoriMobile 是当前内建的第一个平台适配器，数据流已经固定：
+MoriMobile 是唯一官方平台客户端，数据流已经固定：
 
 ```text
 MoriMobile App
@@ -140,7 +153,22 @@ MoriMobile App
 - 浏览器 Origin 会校验；原生 App 可以不带 Origin，依靠设备令牌认证。
 - 详细协议见 [morimobile.md](morimobile.md)。
 
-## 6.2 数据可迁移性
+## 6.2 HTTP 与 WSS 的边界
+
+```text
+MoriMobile
+  ├─ HTTPS JSON API  ──►  /api/v1/mobile/app/*   会话、历史、设置、上传
+  ├─ HTTPS 配对      ──►  /api/v1/mobile/pair     一次性设备令牌
+  └─ WSS             ──►  /api/v1/mobile/ws      实时聊天、流式回复、推送
+```
+
+- **常规业务走 HTTPS**：CRUD、分页、文件上传下载、配置读取等使用普通 JSON 接口，便于缓存、重试、错误码和网关日志。
+- **WSS 只承载实时事件**：聊天消息、流式片段、ACK、心跳和服务端推送。
+- **不把 CRUD 塞进 WebSocket**：否则会失去 HTTP 的幂等、缓存、鉴权和可观测性。
+- **Service 层与传输无关**：`EventBus`、`Pipeline` 和业务 Service 不关心消息来自 WSS 还是一条 HTTP 请求；路由只负责协议转换。
+- **认证分离**：管理接口用后台 JWT，手机业务接口用 `get_mobile_auth_context` 设备令牌。
+
+## 6.3 数据可迁移性
 
 所有运行数据都必须写入 `AppPaths.data_dir`。备份服务会：
 
@@ -154,27 +182,27 @@ MoriMobile App
 
 ## 7. 扩展点
 
-### 7.1 新增平台
+### 7.1 新增 MoriMobile HTTP 业务接口
 
-实现 `PlatformAdapter`：
-
-```python
-class MyAdapter(PlatformAdapter):
-    platform_type = "my_platform"
-
-    async def start(self, event_bus):
-        self.bus = event_bus
-
-    async def stop(self): ...
-
-    async def send_message(self, session_id, text): ...
-```
-
-在 `CoreLifecycle.initialize()` 中注册：
+MoriMobile 的常规业务接口放在 `/api/v1/mobile/app/*` 下，依赖设备认证上下文：
 
 ```python
-self.platform_manager.register(MyAdapter("my-1"))
+from fastapi import APIRouter, Depends
+
+from moribot.dashboard.deps import MobileAuthContext, get_mobile_auth_context
+
+router = APIRouter(prefix="/mobile/app", tags=["mobile-app"])
+
+
+@router.get("/conversations")
+async def list_conversations(
+    auth: MobileAuthContext = Depends(get_mobile_auth_context),
+):
+    # auth.device 是当前设备，auth.user 是设备绑定的账户
+    ...
 ```
+
+这是产品范围内唯一的手机接入方式。MoriBot 不计划新增 QQ、Telegram、Discord 等平台适配器。
 
 ### 7.2 新增模型提供方
 
@@ -210,7 +238,7 @@ class RateLimitStage(Stage):
 - `ctx.db`：数据库
 - `ctx.event_bus`：事件总线
 - `ctx.provider_manager`：模型提供方
-- `ctx.platform_manager`：平台适配器
+- `ctx.platform_manager`：内部平台管理器（当前仅 MoriMobile）
 
 插件通过 `PluginContext` Protocol 与核心解耦，可以独立测试。
 
@@ -234,6 +262,7 @@ class RateLimitStage(Stage):
 - **登录限流**：按客户端 IP 统计失败次数，5 次/60 秒后锁定 120 秒。
 - **初始凭据**：仅在首次启动/重置时打印；修改密码后删除明文文件。
 - **MoriMobile**：一次性配对码 + 哈希设备令牌 + 设备撤销 + Origin 校验 + 消息大小限制。
+- **双认证平面**：后台 JWT 与手机设备令牌分离；设备业务接口通过 `MobileAuthContext` 校验，不能使用后台令牌冒充设备。
 - **网络**：CORS 白名单、可选可信 Host、可选 HTTPS 强制跳转、HSTS（HTTPS 下）、代理头白名单。
 - **备份**：SHA-256 完整性校验、Zip Slip 防护、SQLite integrity_check、原子替换和回滚目录。
 - **响应信封**：错误不会泄漏堆栈；未捕获异常统一记录日志并返回 500。
@@ -243,7 +272,7 @@ class RateLimitStage(Stage):
 
 | 维度 | AstrBot | MoriBot（当前） |
 | --- | --- | --- |
-| 平台 | 十多个内建平台适配器 | 内建 MoriMobile 网关 + 其他平台抽象 |
+| 平台 | 十多个内建平台适配器 | 仅配套 MoriMobile；不计划第三方 IM |
 | 模型 | 多厂商 Provider + Agent Runner | 只保留 Provider 抽象与默认选择 |
 | 插件 | 完整的 Star 插件体系、市场、权限 | 文件系统插件加载 + 上下文协议 |
 | 消息管道 | 多阶段、限流、白名单、内容安全等 | 预处理 / 处理 / 响应三阶段占位 |
@@ -257,7 +286,7 @@ class RateLimitStage(Stage):
 
 1. 会话表、消息表与统一会话 ID。
 2. OpenAI 兼容 Provider（含流式输出、超时、重试）。
-3. WebChat 平台适配器，先打通端到端闭环。
+3. MoriMobile HTTP 业务 API（会话列表、历史记录、设置同步、文件上传）。
 4. 插件管理 API 与热重载。
 5. SSE 实时日志（复用 `LogBroker`）。
 6. 前端登录后的账户安全页与系统设置页。

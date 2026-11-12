@@ -133,6 +133,7 @@ uv run main.py \
 - **JWT**：随机密钥、过期时间、`token_version` 撤销机制；改密后旧令牌立即失效。
 - **登录限流**：按客户端 IP 统计失败次数。
 - **MoriMobile 设备令牌**：高熵随机令牌，数据库只存 SHA-256 哈希；支持单设备撤销、强制下线。
+- **双认证平面**：后台 JWT 用于管理接口，设备令牌用于 `/api/v1/mobile/app/*` 和 WSS；两者不能互相替代。
 - **配对码**：10 分钟有效、一次性、失败限流；生成配对码需要已登录后台。
 - **安全响应头**：`X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`；HTTPS 下增加 HSTS。
 - **CORS**：只允许配置中列出的来源。
@@ -141,9 +142,15 @@ uv run main.py \
 
 ## 5. MoriMobile 网络方向
 
+MoriBot 只与官方手机客户端 [MoriMobile](https://github.com/an-shi/MoriAI-mobile) 配套，不计划接入 QQ、Telegram、Discord 等第三方 IM。手机端的常规业务走 HTTPS JSON API，只有实时聊天和推送走 WSS：
+
 ```text
-MoriMobile ---- 出站 WSS ----► MoriBot /api/v1/mobile/ws
+MoriMobile ── HTTPS JSON ──► MoriBot /api/v1/mobile/app/*   业务/历史/设置
+MoriMobile ── HTTPS 配对  ──► MoriBot /api/v1/mobile/pair    设备令牌
+MoriMobile ── 出站 WSS    ──► MoriBot /api/v1/mobile/ws      实时聊天/推送
 ```
+
+反向代理需要同时正确转发普通 HTTPS 请求和 WebSocket Upgrade；只配置普通 `proxy_pass` 会导致 `/api/v1/mobile/ws` 无法建立。
 
 手机主动连接服务器，而不是服务器主动连接手机，因此：
 
