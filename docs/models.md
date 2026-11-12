@@ -23,7 +23,9 @@ MoriBot 把模型分成三个固定角色，配置保存在数据库 `model_prov
 | `google_gemini` | Gemini 对话模型与 Gemini 图片模型 | chat / image |
 | `elevenlabs` | ElevenLabs 文本转语音 | speech |
 
-控制台提供供应商预设，选择预设会自动填充 Provider 类型、Base URL 和模型示例。也可以选择「自定义 / OpenAI 兼容」手动填写任意端点。
+控制台提供供应商预设，选择预设会自动填充 Provider 类型和 Base URL；模型名称仍需从官方接口获取或手动输入。也可以选择「自定义 / OpenAI 兼容」手动填写任意端点。
+
+语音预设覆盖 OpenAI、Azure OpenAI、ElevenLabs、Groq Orpheus、Together AI 和 SiliconFlow CosyVoice；图片预设覆盖 OpenAI、Azure OpenAI、Gemini、Together AI FLUX、SiliconFlow FLUX/Kolors、DeepInfra FLUX 和火山方舟 Seedream。
 
 ### 1.1 从供应商获取模型列表
 
@@ -105,6 +107,8 @@ OpenRouter、Gemini 等会返回 `architecture`、`inputTokenLimit` 等元数据
 6. 主模型可选择参数预设，或手动调整 `temperature`、`max_tokens`；语音/图片模型按提示填写音色、格式、尺寸等。
 7. 保存后点击「测试连接」发起一次真实的小请求。
 8. 每种类型可以配置多个，点击「设为默认」切换默认模型。
+
+「测试连接」的请求已经尽量最小化：主模型发送 `Hi` 并限制 8 个输出 token；语音模型合成 `Hi.`；图片模型只生成 1 张图。主模型和语音测试通常可在几秒内完成；图片生成以及供应商冷启动、排队和网络延迟仍可能让测试耗时较长，并产生少量费用。
 
 没有 API Key 的本地服务可以留空。API Key 使用安装密钥派生的 Fernet 加密后保存到数据库，API 响应只返回 `api_key_set` 和末尾提示，不返回明文。
 
