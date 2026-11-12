@@ -111,6 +111,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "provider.speech_preview": "已生成 {bytes} 字节音频",
         "provider.image_preview": "已生成 {count} 张图片",
         "provider.models_failed": "获取模型列表失败: {detail}",
+        "provider.models_auth_failed": "获取模型列表失败：认证未通过。请检查 API Key 是否正确，并确认密钥区域与 Base URL 匹配（MiniMax 国际使用 api.minimax.io，国内使用 api.minimax.cn）。详情: {detail}",
         "provider.models_empty": "供应商未返回可用模型，可手动输入模型名称",
     },
     "en-US": {
@@ -200,6 +201,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "provider.speech_preview": "Generated {bytes} bytes of audio",
         "provider.image_preview": "Generated {count} image(s)",
         "provider.models_failed": "Failed to fetch model list: {detail}",
+        "provider.models_auth_failed": "Failed to fetch model list: authentication failed. Check the API key and make sure its region matches the Base URL (MiniMax global: api.minimax.io, China: api.minimax.cn). Details: {detail}",
         "provider.models_empty": "No models returned; enter a model name manually",
     },
 }

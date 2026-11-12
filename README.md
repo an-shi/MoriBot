@@ -149,7 +149,7 @@ MoriMobile 官方仓库：[an-shi/MoriAI-mobile](https://github.com/an-shi/MoriA
 | 语音模型 | 把文本合成为语音 | `tts-1` |
 | 图片模型 | 根据提示词生成图片 | `gpt-image-1` |
 
-所有配置使用 OpenAI 兼容接口或原生适配器。界面提供供应商预设，选择 OpenAI、DeepSeek、通义千问、Kimi、GLM、豆包、Gemini、Claude、Azure、ElevenLabs、MiniMax、Groq、Together、SiliconFlow、DeepInfra 等预设会自动填充接口地址和参数默认值；也可以选择「自定义 / OpenAI 兼容」手动填写。API Key 使用安装密钥派生的 Fernet 加密存储，接口不会返回明文。
+所有配置使用 OpenAI 兼容接口或原生适配器。界面提供供应商预设，选择 OpenAI、DeepSeek、通义千问、Kimi、GLM、豆包、Gemini、Claude、Azure、ElevenLabs、MiniMax、Groq、Together、SiliconFlow、DeepInfra 等预设会自动填充接口地址和参数默认值；也可以选择「自定义 / OpenAI 兼容」手动填写。MiniMax 国际账号选择 `api.minimax.io`，国内账号选择 `api.minimax.cn`，API Key 不能混用。API Key 使用安装密钥派生的 Fernet 加密存储，接口不会返回明文。
 
 模型名称通过供应商官方接口动态获取：填好 Base URL 和 API Key 后，点击模型输入框右侧的刷新按钮即可下拉选择，不再依赖代码里的固定列表。获取时还会记录模型能力（图片识别、工具调用、推理、上下文窗口），保存后显示在配置卡片上，对话层据此决定是否发送图片或工具。主模型还提供「平衡 / 精确 / 创意」参数预设，手动修改后自动切换为自定义。
 

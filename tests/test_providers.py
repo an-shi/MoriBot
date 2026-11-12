@@ -181,6 +181,9 @@ def test_provider_catalog_and_native_type_validation(tmp_path):
         assert by_id["siliconflow"]["voice"] == "FunAudioLLM/CosyVoice2-0.5B:alex"
         assert by_id["minimax"]["provider_type"] == "minimax"
         assert by_id["minimax"]["voice"] == "English_expressive_narrator"
+        assert by_id["minimax-cn"]["provider_type"] == "minimax"
+        assert by_id["minimax-cn"]["base_url"] == "https://api.minimax.cn/v1"
+        assert by_id["minimax-cn"]["voice"] == "male-qn-qingse"
 
         anthropic = _provider_payload("chat", "Claude", "claude-sonnet-4-5")
         anthropic["provider_type"] = "anthropic"

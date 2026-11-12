@@ -217,7 +217,7 @@ PROVIDER_PRESETS: tuple[ProviderPreset, ...] = (
     ),
     ProviderPreset(
         id="minimax",
-        name="MiniMax",
+        name="MiniMax（国际）",
         provider_type="minimax",
         categories=(
             ProviderCategory.CHAT,
@@ -232,6 +232,24 @@ PROVIDER_PRESETS: tuple[ProviderPreset, ...] = (
         ),
         docs_url="https://platform.minimax.io/docs/api-reference/api-overview",
         voice="English_expressive_narrator",
+    ),
+    ProviderPreset(
+        id="minimax-cn",
+        name="MiniMax（国内）",
+        provider_type="minimax",
+        categories=(
+            ProviderCategory.CHAT,
+            ProviderCategory.SPEECH,
+            ProviderCategory.IMAGE,
+        ),
+        base_url="https://api.minimax.cn/v1",
+        models=_models(
+            chat=("MiniMax-M3.1-Flash", "MiniMax-M3"),
+            speech=("speech-2.8-turbo", "speech-2.8-hd"),
+            image=("MiniMax-H3-Image", "MiniMax-H3-Image-Highspeed"),
+        ),
+        docs_url="https://platform.minimaxi.com/docs/api-reference/api-overview",
+        voice="male-qn-qingse",
     ),
     ProviderPreset(
         id="doubao",

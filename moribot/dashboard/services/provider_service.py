@@ -85,8 +85,10 @@ class ProviderConfigService:
                 options=payload.options,
             )
         except Exception as exc:
+            detail = str(exc)[:300]
+            key = "provider.models_auth_failed" if "401" in detail else "provider.models_failed"
             return ProviderModelsOut(
-                message=translate("provider.models_failed", locale, detail=str(exc)[:300]),
+                message=translate(key, locale, detail=detail),
                 manual_allowed=True,
             )
 

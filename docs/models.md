@@ -26,7 +26,7 @@ MoriBot 把模型分成三个固定角色，配置保存在数据库 `model_prov
 
 控制台提供供应商预设，选择预设会自动填充 Provider 类型和 Base URL；模型名称仍需从官方接口获取或手动输入。也可以选择「自定义 / OpenAI 兼容」手动填写任意端点。
 
-语音预设覆盖 OpenAI、Azure OpenAI、ElevenLabs、MiniMax、Groq Orpheus、Together AI 和 SiliconFlow CosyVoice；图片预设覆盖 OpenAI、Azure OpenAI、Gemini、MiniMax H3、Together AI FLUX、SiliconFlow FLUX/Kolors、DeepInfra FLUX 和火山方舟 Seedream。
+语音预设覆盖 OpenAI、Azure OpenAI、ElevenLabs、MiniMax、Groq Orpheus、Together AI 和 SiliconFlow CosyVoice；图片预设覆盖 OpenAI、Azure OpenAI、Gemini、MiniMax H3、Together AI FLUX、SiliconFlow FLUX/Kolors、DeepInfra FLUX 和火山方舟 Seedream。MiniMax 国际版与国内版使用不同域名，API Key 不能混用。
 
 ### 1.1 从供应商获取模型列表
 
@@ -85,7 +85,8 @@ OpenRouter、Gemini 等会返回 `architecture`、`inputTokenLimit` 等元数据
 | 通义千问 / DashScope | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 | Moonshot / Kimi | `https://api.moonshot.cn/v1` |
 | 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` |
-| MiniMax | `https://api.minimax.io/v1` |
+| MiniMax（国际） | `https://api.minimax.io/v1` |
+| MiniMax（国内） | `https://api.minimax.cn/v1` |
 | 火山方舟 / 豆包 | `https://ark.cn-beijing.volces.com/api/v3` |
 | SiliconFlow | `https://api.siliconflow.cn/v1` |
 | OpenRouter | `https://openrouter.ai/api/v1` |
@@ -220,7 +221,7 @@ curl -X POST http://127.0.0.1:6186/api/v1/providers \
 ## 6. 当前限制
 
 - 原生适配器当前覆盖 Anthropic、Gemini、Azure OpenAI、ElevenLabs、MiniMax；其余厂商通过 OpenAI 兼容端点接入。
-- MiniMax 语音使用原生 `POST /v1/t2a_v2` 接口（返回 hex 音频），图片使用 H3 的 `/v1/images/generations`；国内接口如要求 `GroupId`，可在配置的 `options.group_id` 中补充。
+- MiniMax 语音使用原生 `POST /v1/t2a_v2` 接口（返回 hex 音频），图片使用 H3 的 `/v1/images/generations`；国际账号使用 `api.minimax.io`，国内账号使用 `api.minimax.cn`，两者的 API Key 不能混用。国内语音如要求 `GroupId`，可在配置的 `options.group_id` 中补充。
 - 百度文心、腾讯混元、讯飞星火等原生签名协议未单独实现，请使用其 OpenAI 兼容入口或自建网关。
 - Gemini 目前支持 Gemini Image（`gemini-2.5-flash-image`），暂未接入 Imagen `:predict` 与 Gemini TTS。
 - 部分供应商的 `/models` 只返回模型 ID，不返回模态；此时 `capabilities.source` 为 `heuristic`，按名称推断，用户仍可手动修改模型名后重新获取。
