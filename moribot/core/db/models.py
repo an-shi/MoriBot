@@ -9,8 +9,8 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime
-from sqlmodel import Field, SQLModel
+from sqlalchemy import DateTime, UniqueConstraint
+from sqlmodel import JSON, Field, SQLModel
 
 
 def utcnow() -> datetime:
@@ -78,3 +78,29 @@ class MobilePairingCode(TimestampMixin, SQLModel, table=True):
     code_hash: str = Field(max_length=64, unique=True, index=True, nullable=False)
     expires_at: datetime = Field(nullable=False, sa_type=DateTime(timezone=False))
     used_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=False))
+
+
+class ModelProvider(TimestampMixin, SQLModel, table=True):
+    """A configured model endpoint for chat, speech or image generation."""
+
+    __tablename__ = "model_providers"
+    __table_args__ = (
+        UniqueConstraint("category", "name", name="uix_model_provider_category_name"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    category: str = Field(max_length=16, index=True, nullable=False)
+    name: str = Field(max_length=64, nullable=False)
+    provider_type: str = Field(default="openai_compatible", max_length=32, nullable=False)
+    base_url: str = Field(max_length=512, nullable=False)
+    api_key_encrypted: str = Field(default="", max_length=2048, nullable=False)
+    model: str = Field(max_length=128, nullable=False)
+    options: dict = Field(default_factory=dict, sa_type=JSON)
+    is_default: bool = Field(default=False, nullable=False)
+    enabled: bool = Field(default=True, nullable=False)
+    last_test_ok: bool | None = Field(default=None)
+    last_test_message: str = Field(default="", max_length=512)
+    last_tested_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=False),
+    )

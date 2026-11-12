@@ -12,6 +12,7 @@ import re
 from loguru import logger
 
 from ..event import MoriEvent
+from ..provider import ProviderCategory
 from .context import PipelineContext
 from .stage import Stage, register_stage
 
@@ -48,11 +49,11 @@ class ProcessStage(Stage):
         self.ctx = ctx
 
     async def process(self, event: MoriEvent) -> None:
-        provider = self.ctx.provider_manager.get_default()
+        provider = self.ctx.provider_manager.get_default(ProviderCategory.CHAT)
         if provider is None:
-            logger.debug("No provider registered; skipping generation.")
+            logger.debug("No chat provider registered; skipping generation.")
             return
-        logger.debug("Provider {} is available for generation.", provider.provider_id)
+        logger.debug("Chat provider {} is available for generation.", provider.provider_id)
 
 
 @register_stage

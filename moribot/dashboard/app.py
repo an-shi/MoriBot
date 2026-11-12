@@ -33,6 +33,7 @@ from .responses import error
 from .routes import API_V1_PREFIX, api_router
 from .services.auth_service import AuthService
 from .services.mobile_service import MobileService
+from .services.provider_service import ProviderConfigService
 
 
 def _register_dashboard(app: FastAPI, dist: Path | None) -> None:
@@ -114,6 +115,7 @@ def create_app(
         resolved_config,
         lifecycle.mobile_adapter,
     )
+    provider_service = ProviderConfigService(lifecycle)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -146,6 +148,7 @@ def create_app(
     app.state.core = lifecycle
     app.state.auth_service = auth_service
     app.state.mobile_service = mobile_service
+    app.state.provider_service = provider_service
     app.state.login_limiter = LoginRateLimiter()
     app.state.mobile_limiter = LoginRateLimiter()
     app.state.log_broker = broker

@@ -22,7 +22,9 @@ from .pipeline import PipelineContext, PipelineScheduler
 from .platform import PlatformManager
 from .platform.mobile_adapter import MobilePlatformAdapter
 from .plugin import PluginManager
-from .provider import ProviderManager
+from .provider import ModelGateway, ProviderManager
+from .provider.config import spec_from_record
+from .security import SecretBox
 
 
 class CoreLifecycle:
@@ -40,9 +42,9 @@ class CoreLifecycle:
         self._reset_password = reset_password
 
         self.db = SQLiteDatabase(paths.db_file)
-        self.provider_manager = ProviderManager(
-            default_provider_id=str(config.get("provider.default_chat_provider_id", ""))
-        )
+        self.secret_box = SecretBox(config.jwt_secret)
+        self.provider_manager = ProviderManager()
+        self.model_gateway = ModelGateway(self.provider_manager)
         self.platform_manager = PlatformManager()
         self.mobile_adapter = MobilePlatformAdapter()
         self.platform_manager.register(self.mobile_adapter)
@@ -88,6 +90,7 @@ class CoreLifecycle:
             )
 
         await self.pipeline.initialize()
+        await self.reload_providers()
         await self.plugin_manager.load_all()
 
         logger.info(
@@ -96,6 +99,18 @@ class CoreLifecycle:
             len(self.platform_manager),
             len(self.plugin_manager),
         )
+
+    async def reload_providers(self) -> None:
+        """Rebuild provider instances from persisted model configuration."""
+        records = await self.db.list_model_providers()
+        specs = []
+        for record in records:
+            if not record.enabled:
+                continue
+            spec = spec_from_record(record, self.secret_box)
+            if spec is not None:
+                specs.append(spec)
+        await self.provider_manager.load_specs(specs)
 
     async def start(self) -> None:
         """Start the event bus and platform adapters."""

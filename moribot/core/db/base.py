@@ -6,12 +6,13 @@ import abc
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import event, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 
-from .models import MobileDevice, MobilePairingCode, User, utcnow
+from .models import MobileDevice, MobilePairingCode, ModelProvider, User, utcnow
 
 
 class BaseDatabase(abc.ABC):
@@ -151,6 +152,53 @@ class BaseDatabase(abc.ABC):
 
     @abc.abstractmethod
     async def touch_mobile_device(self, device_id: str) -> None:
+        raise NotImplementedError
+
+    # -- Model providers --------------------------------------------------
+
+    @abc.abstractmethod
+    async def list_model_providers(self, category: str | None = None) -> list[ModelProvider]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_model_provider(self, provider_id: int) -> ModelProvider | None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def create_model_provider(self, values: dict[str, Any]) -> ModelProvider:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def update_model_provider(
+        self,
+        provider_id: int,
+        values: dict[str, Any],
+    ) -> ModelProvider | None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def delete_model_provider(self, provider_id: int) -> bool:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def set_default_model_provider(
+        self,
+        category: str,
+        provider_id: int,
+    ) -> ModelProvider | None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_default_model_provider(self, category: str) -> ModelProvider | None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def record_model_provider_test(
+        self,
+        provider_id: int,
+        ok: bool,
+        message: str,
+    ) -> None:
         raise NotImplementedError
 
     async def _count_users(self) -> int:

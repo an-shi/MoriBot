@@ -6,9 +6,12 @@ from .password import (
     validate_password_strength,
     verify_password,
 )
+from .secrets import SecretBox, SecretBoxError
 from .token import create_access_token, decode_access_token
 
 __all__ = [
+    "SecretBox",
+    "SecretBoxError",
     "create_access_token",
     "decode_access_token",
     "generate_password",

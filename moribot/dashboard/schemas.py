@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -94,3 +95,54 @@ class MobileSelfOut(BaseModel):
     user: UserOut
     server_version: str
     protocol: int
+
+
+ProviderCategoryLiteral = Literal["chat", "speech", "image"]
+
+
+class ProviderCreateRequest(BaseModel):
+    category: ProviderCategoryLiteral
+    name: str = Field(min_length=1, max_length=64)
+    provider_type: Literal["openai_compatible"] = "openai_compatible"
+    base_url: str = Field(min_length=1, max_length=512)
+    api_key: str = Field(default="", max_length=2048)
+    model: str = Field(min_length=1, max_length=128)
+    options: dict[str, Any] = Field(default_factory=dict)
+    is_default: bool = False
+    enabled: bool = True
+
+
+class ProviderUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=64)
+    base_url: str | None = Field(default=None, min_length=1, max_length=512)
+    api_key: str | None = Field(default=None, max_length=2048)
+    model: str | None = Field(default=None, min_length=1, max_length=128)
+    options: dict[str, Any] | None = None
+    is_default: bool | None = None
+    enabled: bool | None = None
+
+
+class ProviderOut(BaseModel):
+    id: int
+    category: ProviderCategoryLiteral
+    name: str
+    provider_type: str
+    base_url: str
+    model: str
+    options: dict[str, Any] = Field(default_factory=dict)
+    is_default: bool = False
+    enabled: bool = True
+    api_key_set: bool = False
+    api_key_hint: str = ""
+    last_test_ok: bool | None = None
+    last_test_message: str = ""
+    last_tested_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProviderTestResult(BaseModel):
+    ok: bool
+    message: str
+    latency_ms: int = 0
+    preview: str = ""

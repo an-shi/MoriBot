@@ -9,7 +9,7 @@ from sqlalchemy import func, update
 from sqlmodel import select
 
 from .base import BaseDatabase
-from .models import MobileDevice, MobilePairingCode, User, utcnow
+from .models import MobileDevice, MobilePairingCode, ModelProvider, User, utcnow
 
 
 class SQLiteDatabase(BaseDatabase):
@@ -194,3 +194,101 @@ class SQLiteDatabase(BaseDatabase):
             device.last_seen_at = utcnow()
             self._touch(device)
             session.add(device)
+
+    # -- Model providers --------------------------------------------------
+
+    async def list_model_providers(self, category: str | None = None) -> list[ModelProvider]:
+        async with self.session() as session:
+            statement = select(ModelProvider).order_by(
+                ModelProvider.category,
+                ModelProvider.created_at,
+            )
+            if category:
+                statement = statement.where(ModelProvider.category == category)
+            result = await session.execute(statement)
+            return list(result.scalars().all())
+
+    async def get_model_provider(self, provider_id: int) -> ModelProvider | None:
+        async with self.session() as session:
+            return await session.get(ModelProvider, provider_id)
+
+    async def create_model_provider(self, values: dict) -> ModelProvider:
+        provider = ModelProvider(**values)
+        async with self.session() as session:
+            session.add(provider)
+            await session.flush()
+            await session.refresh(provider)
+        return provider
+
+    async def update_model_provider(
+        self,
+        provider_id: int,
+        values: dict,
+    ) -> ModelProvider | None:
+        async with self.session() as session:
+            provider = await session.get(ModelProvider, provider_id)
+            if provider is None:
+                return None
+            for key, value in values.items():
+                setattr(provider, key, value)
+            self._touch(provider)
+            session.add(provider)
+            await session.flush()
+            await session.refresh(provider)
+            return provider
+
+    async def delete_model_provider(self, provider_id: int) -> bool:
+        async with self.session() as session:
+            provider = await session.get(ModelProvider, provider_id)
+            if provider is None:
+                return False
+            await session.delete(provider)
+            return True
+
+    async def set_default_model_provider(
+        self,
+        category: str,
+        provider_id: int,
+    ) -> ModelProvider | None:
+        async with self.session() as session:
+            provider = await session.get(ModelProvider, provider_id)
+            if provider is None or provider.category != category:
+                return None
+            await session.execute(
+                update(ModelProvider)
+                .where(ModelProvider.category == category)
+                .values(is_default=False)
+            )
+            provider.is_default = True
+            provider.updated_at = utcnow()
+            session.add(provider)
+            await session.flush()
+            await session.refresh(provider)
+            return provider
+
+    async def get_default_model_provider(self, category: str) -> ModelProvider | None:
+        async with self.session() as session:
+            result = await session.execute(
+                select(ModelProvider)
+                .where(ModelProvider.category == category)
+                .where(ModelProvider.is_default.is_(True))
+                .where(ModelProvider.enabled.is_(True))
+                .limit(1)
+            )
+            return result.scalar_one_or_none()
+
+    async def record_model_provider_test(
+        self,
+        provider_id: int,
+        ok: bool,
+        message: str,
+    ) -> None:
+        async with self.session() as session:
+            provider = await session.get(ModelProvider, provider_id)
+            if provider is None:
+                return
+            provider.last_test_ok = ok
+            provider.last_test_message = message[:512]
+            provider.last_tested_at = utcnow()
+            self._touch(provider)
+            session.add(provider)
