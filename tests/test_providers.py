@@ -121,3 +121,32 @@ def test_provider_validation_rejects_invalid_base_url(tmp_path):
         payload["base_url"] = "ftp://example.com"
         response = client.post("/api/v1/providers", headers=headers, json=payload)
         assert response.status_code == 400
+
+
+def test_provider_catalog_and_native_type_validation(tmp_path):
+    app, _ = _build_app(tmp_path)
+    with TestClient(app) as client:
+        headers = _login(client, app)
+
+        catalog = client.get("/api/v1/providers/catalog", headers=headers)
+        assert catalog.status_code == 200
+        type_ids = {item["id"] for item in catalog.json()["data"]["types"]}
+        assert {
+            "openai_compatible",
+            "anthropic",
+            "google_gemini",
+            "azure_openai",
+            "elevenlabs",
+        } <= type_ids
+
+        anthropic = _provider_payload("chat", "Claude", "claude-sonnet-4-5")
+        anthropic["provider_type"] = "anthropic"
+        anthropic["base_url"] = "https://api.anthropic.com/v1"
+        created = client.post("/api/v1/providers", headers=headers, json=anthropic)
+        assert created.status_code == 200
+        assert created.json()["data"]["provider_type"] == "anthropic"
+
+        image_with_claude = _provider_payload("image", "Claude Image", "claude")
+        image_with_claude["provider_type"] = "anthropic"
+        rejected = client.post("/api/v1/providers", headers=headers, json=image_with_claude)
+        assert rejected.status_code == 400

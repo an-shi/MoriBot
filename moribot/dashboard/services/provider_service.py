@@ -16,9 +16,16 @@ from moribot.core.provider import (
     SpeechProvider,
     ImageProvider,
 )
+from moribot.core.provider.catalog import catalog_payload, provider_type_supports
 from moribot.core.provider.manager import ProviderManager
 
-from ..schemas import ProviderCreateRequest, ProviderOut, ProviderTestResult, ProviderUpdateRequest
+from ..schemas import (
+    ProviderCatalogOut,
+    ProviderCreateRequest,
+    ProviderOut,
+    ProviderTestResult,
+    ProviderUpdateRequest,
+)
 
 _VALID_CATEGORIES = {category.value for category in ProviderCategory}
 _VALID_SPEECH_FORMATS = {"mp3", "opus", "aac", "flac", "wav", "pcm"}
@@ -32,6 +39,11 @@ class ProviderConfigService:
         self.db = core.db
         self.secret_box = core.secret_box
         self.manager: ProviderManager = core.provider_manager
+
+    @staticmethod
+    def catalog() -> ProviderCatalogOut:
+        """Return supported adapters and vendor presets for the UI."""
+        return ProviderCatalogOut.model_validate(catalog_payload())
 
     async def list_providers(self, category: str | None = None) -> list[ProviderOut]:
         records = await self.db.list_model_providers(category=category)
@@ -50,6 +62,9 @@ class ProviderConfigService:
         locale: str = DEFAULT_LOCALE,
     ) -> ProviderOut:
         category = self._validate_category(payload.category, locale)
+        provider_type = payload.provider_type.strip()
+        if not provider_type_supports(provider_type, category):
+            raise MoriError(translate("provider.unsupported_type", locale))
         name = payload.name.strip()
         model = payload.model.strip()
         if not name or not model:
@@ -66,7 +81,7 @@ class ProviderConfigService:
         values = {
             "category": category,
             "name": name,
-            "provider_type": payload.provider_type,
+            "provider_type": provider_type,
             "base_url": base_url,
             "api_key_encrypted": self.secret_box.encrypt(payload.api_key.strip()),
             "model": model,
@@ -101,6 +116,11 @@ class ProviderConfigService:
             raise NotFoundError(translate("provider.not_found", locale))
 
         values: dict = {}
+        if payload.provider_type is not None:
+            provider_type = payload.provider_type.strip()
+            if not provider_type_supports(provider_type, record.category):
+                raise MoriError(translate("provider.unsupported_type", locale))
+            values["provider_type"] = provider_type
         if payload.name is not None:
             name = payload.name.strip()
             if not name:

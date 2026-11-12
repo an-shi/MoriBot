@@ -10,6 +10,7 @@ from moribot.core.i18n import translate
 from ..deps import get_current_user, get_locale, get_provider_service
 from ..responses import ApiResponse, ok
 from ..schemas import (
+    ProviderCatalogOut,
     ProviderCreateRequest,
     ProviderOut,
     ProviderTestResult,
@@ -18,6 +19,15 @@ from ..schemas import (
 from ..services.provider_service import ProviderConfigService
 
 router = APIRouter(prefix="/providers", tags=["providers"])
+
+
+@router.get("/catalog", response_model=ApiResponse[ProviderCatalogOut])
+async def provider_catalog(
+    _user: User = Depends(get_current_user),
+    service: ProviderConfigService = Depends(get_provider_service),
+) -> dict:
+    """Return supported adapter types and vendor presets for the UI."""
+    return ok(service.catalog())
 
 
 @router.get("", response_model=ApiResponse[list[ProviderOut]])

@@ -9,7 +9,16 @@ from loguru import logger
 
 from ..db import ModelProvider
 from ..security import SecretBox, SecretBoxError
+from .anthropic import AnthropicChatProvider
+from .azure_openai import (
+    AzureOpenAIChatProvider,
+    AzureOpenAIImageProvider,
+    AzureOpenAISpeechProvider,
+)
 from .base import Provider, ProviderCategory, ProviderError
+from .catalog import provider_type_supports
+from .elevenlabs import ElevenLabsSpeechProvider
+from .gemini import GeminiChatProvider, GeminiImageProvider
 from .openai_compatible import (
     OpenAICompatibleChatProvider,
     OpenAICompatibleImageProvider,
@@ -56,6 +65,9 @@ def spec_from_record(record: ModelProvider, secret_box: SecretBox) -> ProviderCo
 
 def build_provider(spec: ProviderConfigSpec) -> Provider:
     """Instantiate the concrete provider for a spec."""
+    if not provider_type_supports(spec.provider_type, spec.category):
+        raise ProviderError(f"Provider type {spec.provider_type} does not support {spec.category}")
+
     config = {
         **spec.options,
         "name": spec.name,
@@ -63,13 +75,30 @@ def build_provider(spec: ProviderConfigSpec) -> Provider:
         "api_key": spec.api_key,
     }
     provider_id = str(spec.id)
-    if spec.provider_type != "openai_compatible":
-        raise ProviderError(f"Unsupported provider type: {spec.provider_type}")
 
-    if spec.category == ProviderCategory.CHAT:
-        return OpenAICompatibleChatProvider(provider_id, model=spec.model, config=config)
-    if spec.category == ProviderCategory.SPEECH:
-        return OpenAICompatibleSpeechProvider(provider_id, model=spec.model, config=config)
-    if spec.category == ProviderCategory.IMAGE:
+    if spec.provider_type == "openai_compatible":
+        if spec.category == ProviderCategory.CHAT:
+            return OpenAICompatibleChatProvider(provider_id, model=spec.model, config=config)
+        if spec.category == ProviderCategory.SPEECH:
+            return OpenAICompatibleSpeechProvider(provider_id, model=spec.model, config=config)
         return OpenAICompatibleImageProvider(provider_id, model=spec.model, config=config)
-    raise ProviderError(f"Unsupported provider category: {spec.category}")
+
+    if spec.provider_type == "azure_openai":
+        if spec.category == ProviderCategory.CHAT:
+            return AzureOpenAIChatProvider(provider_id, model=spec.model, config=config)
+        if spec.category == ProviderCategory.SPEECH:
+            return AzureOpenAISpeechProvider(provider_id, model=spec.model, config=config)
+        return AzureOpenAIImageProvider(provider_id, model=spec.model, config=config)
+
+    if spec.provider_type == "anthropic":
+        return AnthropicChatProvider(provider_id, model=spec.model, config=config)
+
+    if spec.provider_type == "google_gemini":
+        if spec.category == ProviderCategory.IMAGE:
+            return GeminiImageProvider(provider_id, model=spec.model, config=config)
+        return GeminiChatProvider(provider_id, model=spec.model, config=config)
+
+    if spec.provider_type == "elevenlabs":
+        return ElevenLabsSpeechProvider(provider_id, model=spec.model, config=config)
+
+    raise ProviderError(f"Unsupported provider type: {spec.provider_type}")

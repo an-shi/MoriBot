@@ -100,10 +100,36 @@ class MobileSelfOut(BaseModel):
 ProviderCategoryLiteral = Literal["chat", "speech", "image"]
 
 
+class ProviderTypeOut(BaseModel):
+    id: str
+    name: str
+    description: str
+    categories: list[ProviderCategoryLiteral]
+    default_base_url: str = ""
+    api_key_required: bool = True
+    docs_url: str = ""
+
+
+class ProviderPresetOut(BaseModel):
+    id: str
+    name: str
+    provider_type: str
+    categories: list[ProviderCategoryLiteral]
+    base_url: str = ""
+    models: dict[str, list[str]] = Field(default_factory=dict)
+    docs_url: str = ""
+    api_key_required: bool = True
+
+
+class ProviderCatalogOut(BaseModel):
+    types: list[ProviderTypeOut] = Field(default_factory=list)
+    presets: list[ProviderPresetOut] = Field(default_factory=list)
+
+
 class ProviderCreateRequest(BaseModel):
     category: ProviderCategoryLiteral
     name: str = Field(min_length=1, max_length=64)
-    provider_type: Literal["openai_compatible"] = "openai_compatible"
+    provider_type: str = "openai_compatible"
     base_url: str = Field(min_length=1, max_length=512)
     api_key: str = Field(default="", max_length=2048)
     model: str = Field(min_length=1, max_length=128)
@@ -114,6 +140,7 @@ class ProviderCreateRequest(BaseModel):
 
 class ProviderUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=64)
+    provider_type: str | None = None
     base_url: str | None = Field(default=None, min_length=1, max_length=512)
     api_key: str | None = Field(default=None, max_length=2048)
     model: str | None = Field(default=None, min_length=1, max_length=128)
