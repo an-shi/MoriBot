@@ -53,3 +53,31 @@ export interface MobileDevice {
   last_seen_at: string | null
   revoked_at: string | null
 }
+
+export type ProviderCategory = 'chat' | 'speech' | 'image'
+
+export interface ModelProvider {
+  id: number
+  category: ProviderCategory
+  name: string
+  provider_type: string
+  base_url: string
+  model: string
+  options: Record<string, unknown>
+  is_default: boolean
+  enabled: boolean
+  api_key_set: boolean
+  api_key_hint: string
+  last_test_ok: boolean | null
+  last_test_message: string
+  last_tested_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProviderTestResult {
+  ok: boolean
+  message: string
+  latency_ms: number
+  preview: string
+}
