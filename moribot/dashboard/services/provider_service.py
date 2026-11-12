@@ -303,13 +303,13 @@ class ProviderConfigService:
         try:
             if provider.category == ProviderCategory.CHAT:
                 response = await provider.chat(
-                    [ChatMessage(role="user", content="Reply with exactly: pong")],
+                    [ChatMessage(role="user", content="Hi")],
                     temperature=0,
-                    max_tokens=16,
+                    max_tokens=8,
                 )
                 preview = response.text.strip()[:160]
             elif isinstance(provider, SpeechProvider):
-                audio = await provider.synthesize("MoriBot voice test.")
+                audio = await provider.synthesize("Hi.")
                 preview = translate(
                     "provider.speech_preview",
                     locale,
@@ -317,7 +317,8 @@ class ProviderConfigService:
                 )
             elif isinstance(provider, ImageProvider):
                 images = await provider.generate(
-                    "A simple green leaf icon on a white background"
+                    "A green leaf on a white background",
+                    n=1,
                 )
                 preview = translate(
                     "provider.image_preview",
