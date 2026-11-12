@@ -290,7 +290,7 @@ class RateLimitStage(Stage):
 | 维度 | AstrBot | MoriBot（当前） |
 | --- | --- | --- |
 | 平台 | 十多个内建平台适配器 | 仅配套 MoriMobile；不计划第三方 IM |
-| 模型 | 多厂商 Provider + Agent Runner | 三类模型、主流供应商预设、原生 Claude/Gemini/Azure/ElevenLabs 适配 |
+| 模型 | 多厂商 Provider + Agent Runner | 三类模型、主流供应商预设、原生 Claude/Gemini/Azure/ElevenLabs/MiniMax 适配 |
 | 插件 | 完整的 Star 插件体系、市场、权限 | 文件系统插件加载 + 上下文协议 |
 | 消息管道 | 多阶段、限流、白名单、内容安全等 | 预处理 / 处理 / 响应三阶段占位 |
 | 数据库 | 大量业务表与迁移 | 用户、MoriMobile 设备、模型配置表 + 通用数据库接口 |
