@@ -53,14 +53,14 @@
 | `moribot/core/event/` | `MoriEvent` 归一化事件、异步事件总线 |
 | `moribot/core/pipeline/` | `Stage` 契约、注册表、洋葱模型调度器、内置阶段 |
 | `moribot/core/platform/` | 内部平台抽象、MoriMobile 网关适配器 |
-| `moribot/core/provider/` | 模型提供方抽象与默认选择 |
+| `moribot/core/provider/` | 三类模型 Provider、OpenAI 兼容实现、默认选择与工具调用网关 |
 | `moribot/core/plugin/` | 插件基类、`PluginContext` 协议、文件系统加载器 |
 | `moribot/core/accounts.py` | 首次启动管理员账户、密码重置、凭据文件 |
 | `moribot/core/backup.py` | 自描述 ZIP 备份、校验、原子导入 |
 | `moribot/core/i18n.py` | 后端中英文消息与语言协商 |
 | `moribot/core/logging.py` | Loguru 控制台/文件 Sink、内存日志 Broker |
 | `moribot/dashboard/app.py` | FastAPI 工厂、CORS、GZip、安全头、异常处理、SPA 托管 |
-| `moribot/dashboard/routes/` | `/api/v1/auth`、`/system`、`/mobile` |
+| `moribot/dashboard/routes/` | `/api/v1/auth`、`/system`、`/mobile`、`/providers` |
 | `dashboard/src/` | Vue 控制台，登录页、工作台、MoriMobile 配对弹窗 |
 
 ## 4. 启动生命周期
@@ -168,8 +168,23 @@ MoriMobile
 - **Service 层与传输无关**：`EventBus`、`Pipeline` 和业务 Service 不关心消息来自 WSS 还是一条 HTTP 请求；路由只负责协议转换。
 - **认证分离**：管理接口用后台 JWT，手机业务接口用 `get_mobile_auth_context` 设备令牌。
 
-## 6.3 数据可迁移性
+## 6.3 模型角色与工具调用
 
+模型配置分为三个固定角色：`chat`、`speech`、`image`。Provider 层负责协议适配，`ModelGateway` 负责编排：
+
+```text
+主模型 chat.completions(tools=[generate_speech, generate_image])
+  ├─ tool_call generate_speech → 默认语音模型 → SpeechResult
+  ├─ tool_call generate_image  → 默认图片模型 → GeneratedImage[]
+  └─ 主模型收到 tool 结果 → 最终文本
+```
+
+- 只有配置了对应默认模型，工具才会出现在主模型请求中。
+- 工具调用结果和媒体附件通过 `ModelReply` 返回给上层对话服务。
+- API Key 使用安装密钥派生的 Fernet 加密存储，数据库读取不会直接暴露明文。
+- 模型配置保存在 `model_providers` 表，随数据库备份迁移。
+
+## 6.4 数据可迁移性
 所有运行数据都必须写入 `AppPaths.data_dir`。备份服务会：
 
 1. 用 SQLite 在线备份 API 生成一致性数据库快照。
@@ -247,7 +262,7 @@ class RateLimitStage(Stage):
 | 文件 | 说明 |
 | --- | --- |
 | `data/config.json` | 运行时配置，启动时自动补全缺失字段 |
-| `data/moribot.db` | SQLite 数据库（WAL 模式） |
+| `data/moribot.db` | SQLite 数据库（WAL 模式，含账户、MoriMobile 设备、模型配置） |
 | `data/logs/moribot.log` | 滚动日志（10 MB × 14 天） |
 | `data/initial_admin.txt` | 一次性初始凭据，修改密码后删除 |
 | `data/plugins/` | 插件目录 |
@@ -265,6 +280,7 @@ class RateLimitStage(Stage):
 - **双认证平面**：后台 JWT 与手机设备令牌分离；设备业务接口通过 `MobileAuthContext` 校验，不能使用后台令牌冒充设备。
 - **网络**：CORS 白名单、可选可信 Host、可选 HTTPS 强制跳转、HSTS（HTTPS 下）、代理头白名单。
 - **备份**：SHA-256 完整性校验、Zip Slip 防护、SQLite integrity_check、原子替换和回滚目录。
+- **模型密钥**：API Key 使用安装密钥派生的 Fernet 加密存储；接口只返回是否已设置和末尾提示。
 - **响应信封**：错误不会泄漏堆栈；未捕获异常统一记录日志并返回 500。
 - **i18n**：错误消息通过 `Accept-Language` / `X-Mori-Locale` 本地化，默认中文。
 
@@ -273,10 +289,10 @@ class RateLimitStage(Stage):
 | 维度 | AstrBot | MoriBot（当前） |
 | --- | --- | --- |
 | 平台 | 十多个内建平台适配器 | 仅配套 MoriMobile；不计划第三方 IM |
-| 模型 | 多厂商 Provider + Agent Runner | 只保留 Provider 抽象与默认选择 |
+| 模型 | 多厂商 Provider + Agent Runner | 三类 OpenAI 兼容模型 + 工具调用网关 |
 | 插件 | 完整的 Star 插件体系、市场、权限 | 文件系统插件加载 + 上下文协议 |
 | 消息管道 | 多阶段、限流、白名单、内容安全等 | 预处理 / 处理 / 响应三阶段占位 |
-| 数据库 | 大量业务表与迁移 | 用户表、MoriMobile 设备表 + 通用数据库接口 |
+| 数据库 | 大量业务表与迁移 | 用户、MoriMobile 设备、模型配置表 + 通用数据库接口 |
 | WebUI | Vuetify 大型控制台 | 登录页、空白工作台、MoriMobile 配对与数据导出 |
 | 数据迁移 | 备份功能 | 自描述 ZIP + 完整性校验 + 原子导入 |
 
@@ -285,7 +301,7 @@ class RateLimitStage(Stage):
 ## 11. 后续演进
 
 1. 会话表、消息表与统一会话 ID。
-2. OpenAI 兼容 Provider（含流式输出、超时、重试）。
+2. 主模型流式输出、自动重试和多轮 Agent 工具调用。
 3. MoriMobile HTTP 业务 API（会话列表、历史记录、设置同步、文件上传）。
 4. 插件管理 API 与热重载。
 5. SSE 实时日志（复用 `LogBroker`）。

@@ -11,6 +11,8 @@ MoriBot 的产品目标不是做多平台聊天机器人网关，**不计划接�
 - 以 [MoriMobile](https://github.com/an-shi/MoriAI-mobile) 为唯一官方手机客户端
 - 内建 MoriMobile 安全网关：设备配对、设备令牌、WebSocket 上下行、设备撤销
 - MoriMobile 业务接口走 HTTPS JSON API，实时聊天走加密 WSS
+- 三类模型配置：主模型 / 语音模型 / 图片模型，支持 OpenAI 兼容接口
+- 主模型通过工具调用语音与图片模型，在对话中生成语音和图片
 - SQLite 数据库与管理员账户
 - JWT 登录、密码哈希、登录限流、反向代理/TLS 支持
 - 一键数据导出 / 导入，运行数据可整体迁移
@@ -46,27 +48,30 @@ MoriBot/
 │   │   ├── event/              # 归一化事件模型与异步事件总线
 │   │   ├── pipeline/           # Stage 基类、注册表与调度器
 │   │   ├── platform/           # 内部平台抽象、MoriMobile 网关
-│   │   ├── provider/           # 模型提供方抽象与管理器
+│   │   ├── provider/           # 三类模型 Provider、OpenAI 兼容实现、工具网关
 │   │   ├── plugin/             # 插件基类与文件系统加载器
 │   │   ├── backup.py           # 可验证的数据导出/导入
 │   │   ├── i18n.py             # 后端中英文消息
-│   │   ├── security/           # 密码哈希与 JWT
+│   │   ├── security/           # 密码哈希、JWT、API Key 加密
 │   │   └── logging.py          # 日志配置与 LogBroker
 │   └── dashboard/
 │       ├── app.py              # FastAPI 工厂、异常处理、SPA 托管
 │       ├── deps.py             # 鉴权依赖
-│       ├── routes/             # auth / system / mobile
-│       ├── services/           # 认证、MoriMobile 配对
+│       ├── routes/             # auth / system / mobile / providers
+│       ├── services/           # 认证、MoriMobile 配对、模型配置
 │       └── schemas.py          # Pydantic 请求/响应模型
 ├── dashboard/                  # Web 控制台
 │   ├── src/i18n/               # 中文 / English 文案
 │   ├── src/views/auth/LoginPage.vue
 │   ├── src/views/HomePage.vue
+│   ├── src/views/ProvidersPage.vue
 │   ├── src/components/MobilePairingDialog.vue
+│   ├── src/components/ProviderDialog.vue
 │   ├── src/layouts/DefaultLayout.vue
 │   └── ...
 ├── docs/
 │   ├── architecture.md
+│   ├── models.md               # 三类模型配置与工具调用
 │   ├── deployment.md           # 公网部署与网络安全
 │   ├── morimobile.md           # 手机端配对与 WebSocket 协议
 │   └── data-migration.md       # 数据迁移与备份
@@ -132,7 +137,21 @@ MoriMobile 官方仓库：[an-shi/MoriAI-mobile](https://github.com/an-shi/MoriA
 
 > 公网使用前至少设置 `dashboard.public_url`、`trusted_hosts`、`force_https`，并确保只通过 HTTPS 暴露控制台。
 
-### 5. 数据迁移
+### 5. 配置模型
+
+登录后进入左侧「模型服务」，分别配置三类模型：
+
+| 类型 | 职责 | 示例模型 |
+| --- | --- | --- |
+| 主模型 | 对话、推理、调用工具 | `gpt-4.1-mini` |
+| 语音模型 | 把文本合成为语音 | `tts-1` |
+| 图片模型 | 根据提示词生成图片 | `gpt-image-1` |
+
+所有配置使用 OpenAI 兼容接口，需要填写 Base URL、API Key 和模型名称。API Key 使用安装密钥派生的 Fernet 加密存储，接口不会返回明文。
+
+主模型会通过 `generate_speech` 和 `generate_image` 两个工具调用默认语音/图片模型；实现位于 `moribot/core/provider/gateway.py`，后续对话服务直接消费 `ModelGateway.chat()` 即可。详细说明见 [docs/models.md](docs/models.md)。
+
+### 6. 数据迁移
 
 首页「导出数据」会下载一个包含配置、数据库、插件及未来所有运行数据的 ZIP。迁移到另一台机器：
 
@@ -227,6 +246,12 @@ uv run main.py --host 127.0.0.1 --port 8080 --data-dir ./my-data
 | POST | `/api/v1/auth/logout` | 是 | 登出确认（客户端丢弃令牌） |
 | GET | `/api/v1/system/info` | 是 | 首页运行状态 |
 | GET | `/api/v1/system/backup/export` | 是 | 下载完整数据备份 |
+| GET | `/api/v1/providers` | 是 | 列出三类模型配置 |
+| POST | `/api/v1/providers` | 是 | 创建模型配置 |
+| PATCH | `/api/v1/providers/{id}` | 是 | 更新模型配置（API Key 留空保持） |
+| DELETE | `/api/v1/providers/{id}` | 是 | 删除模型配置 |
+| POST | `/api/v1/providers/{id}/default` | 是 | 设置该类型默认模型 |
+| POST | `/api/v1/providers/{id}/test` | 是 | 发起一次真实连通性测试 |
 | POST | `/api/v1/mobile/pairing-code` | 是 | 生成一次性 MoriMobile 配对码 |
 | POST | `/api/v1/mobile/pair` | 否（配对码） | 手机兑换设备令牌 |
 | GET | `/api/v1/mobile/app/me` | 设备令牌 | 校验设备并返回设备/账户信息 |
@@ -372,7 +397,7 @@ pnpm build
 后续：
 
 - [ ] 会话与消息历史
-- [ ] OpenAI / Anthropic / Gemini 等模型提供方
+- [ ] 主模型流式输出、重试与多轮 Agent 工具调用完善
 - [ ] MoriMobile 业务 API 与多端同步
 - [ ] 插件管理页与插件市场
 - [ ] 实时日志控制台
