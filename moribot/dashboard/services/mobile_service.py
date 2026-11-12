@@ -131,7 +131,7 @@ class MobileService:
         )
         return MobilePairOut(
             device_token=token,
-            device=self._device_out(device),
+            device=self.device_out(device),
         )
 
     async def authenticate_device(self, token: str) -> MobileDevice | None:
@@ -150,7 +150,7 @@ class MobileService:
         if user.id is None:
             return []
         devices = await self.db.list_mobile_devices(user.id)
-        return [self._device_out(device) for device in devices]
+        return [self.device_out(device) for device in devices]
 
     async def revoke_device(
         self,
@@ -203,7 +203,7 @@ class MobileService:
         if not delivered:
             raise MoriError(translate("mobile.device_offline", locale), status_code=409)
 
-    def _device_out(self, device: MobileDevice) -> MobileDeviceOut:
+    def device_out(self, device: MobileDevice) -> MobileDeviceOut:
         return MobileDeviceOut(
             id=device.id,
             name=device.name,
@@ -212,3 +212,4 @@ class MobileService:
             last_seen_at=device.last_seen_at,
             revoked_at=device.revoked_at,
         )
+

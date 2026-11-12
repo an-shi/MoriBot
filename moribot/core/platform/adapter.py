@@ -1,8 +1,12 @@
-"""Platform adapter abstraction.
+"""MoriMobile platform adapter abstraction.
 
-Adapters translate an external chat platform (QQ, Telegram, Discord, WebChat,
-...) into normalized :class:`moribot.core.event.models.MoriEvent` instances and
-send replies back. No concrete adapter is bundled in the foundation.
+MoriBot is designed as the backend control plane for the official MoriMobile
+client. The platform layer remains an internal seam for that adapter, but the
+product does not plan to ship third-party IM integrations (QQ, Telegram, etc.).
+
+Adapters translate an external chat client into normalized
+:class:`moribot.core.event.models.MoriEvent` instances and send replies back.
+Only the MoriMobile adapter is shipped by default.
 """
 
 from __future__ import annotations

@@ -64,6 +64,26 @@ def test_pairing_and_mobile_websocket_flow(tmp_path):
         )
         assert reused.status_code == 400
 
+        app_me = client.get(
+            "/api/v1/mobile/app/me",
+            headers={"Authorization": f"Bearer {device_token}"},
+        )
+        assert app_me.status_code == 200
+        assert app_me.json()["data"]["device"]["id"] == device_id
+        assert app_me.json()["data"]["user"]["username"] == "admin"
+
+        header_auth = client.get(
+            "/api/v1/mobile/app/me",
+            headers={"X-Mori-Device-Token": device_token},
+        )
+        assert header_auth.status_code == 200
+
+        dashboard_token_is_not_a_device = client.get(
+            "/api/v1/mobile/app/me",
+            headers=headers,
+        )
+        assert dashboard_token_is_not_a_device.status_code == 401
+
         devices = client.get("/api/v1/mobile/devices", headers=headers)
         assert devices.status_code == 200
         device_list = devices.json()["data"]

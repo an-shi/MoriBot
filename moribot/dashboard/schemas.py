@@ -87,3 +87,10 @@ class MobileDeviceOut(BaseModel):
 class MobilePairOut(BaseModel):
     device_token: str
     device: MobileDeviceOut
+
+
+class MobileSelfOut(BaseModel):
+    device: MobileDeviceOut
+    user: UserOut
+    server_version: str
+    protocol: int

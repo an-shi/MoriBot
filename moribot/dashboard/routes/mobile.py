@@ -21,8 +21,10 @@ from moribot.core.i18n import parse_accept_language, translate
 from moribot.core.platform.mobile_adapter import MobileConnection
 
 from ..deps import (
+    MobileAuthContext,
     get_current_user,
     get_locale,
+    get_mobile_auth_context,
     get_mobile_limiter,
     get_mobile_service,
 )
@@ -32,8 +34,10 @@ from ..schemas import (
     MobileDeviceOut,
     MobilePairOut,
     MobilePairRequest,
+    MobileSelfOut,
     MobileSendRequest,
     PairingCodeOut,
+    UserOut,
 )
 from ..services.mobile_service import MobileService
 
@@ -170,6 +174,26 @@ async def pair_device(
 
     await limiter.reset(key)
     return ok(result, message=translate("mobile.device_paired", locale))
+
+
+@router.get("/app/me", response_model=ApiResponse[MobileSelfOut])
+async def mobile_app_me(
+    auth: MobileAuthContext = Depends(get_mobile_auth_context),
+    service: MobileService = Depends(get_mobile_service),
+) -> dict:
+    """Authenticate a MoriMobile HTTP business call.
+
+    The phone uses this endpoint with its device token to verify that the token
+    is still valid and to obtain the owner account and current device record.
+    """
+    return ok(
+        MobileSelfOut(
+            device=service.device_out(auth.device),
+            user=UserOut.model_validate(auth.user),
+            server_version=__version__,
+            protocol=PROTOCOL_VERSION,
+        )
+    )
 
 
 @router.websocket("/ws")
