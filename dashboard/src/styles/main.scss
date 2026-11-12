@@ -1,0 +1,167 @@
+:root {
+  --mori-bg: #f3f7f4;
+  --mori-panel: #ffffff;
+  --mori-panel-2: #eef4f0;
+  --mori-text: #12231b;
+  --mori-muted: #5f7268;
+  --mori-line: rgba(18, 35, 27, 0.1);
+  --mori-line-strong: rgba(18, 35, 27, 0.18);
+  --mori-mint: #1f7a58;
+  --mori-mint-bright: #37a97c;
+  --mori-mint-soft: rgba(31, 122, 88, 0.1);
+  --mori-glow: rgba(31, 122, 88, 0.18);
+  --mori-logo-bg: #0f2a21;
+  --mori-logo-border: #2e6b52;
+  --mori-logo-leaf: #37a97c;
+  --mori-logo-vein: #0f2a21;
+  --mori-shadow: 0 24px 64px rgba(29, 57, 43, 0.14);
+}
+
+html.moribot-dark {
+  --mori-bg: #07100c;
+  --mori-panel: #0c1712;
+  --mori-panel-2: #101d17;
+  --mori-text: #e8f2ed;
+  --mori-muted: #8aa398;
+  --mori-line: rgba(232, 242, 237, 0.1);
+  --mori-line-strong: rgba(232, 242, 237, 0.2);
+  --mori-mint: #7be3b3;
+  --mori-mint-bright: #9af2c9;
+  --mori-mint-soft: rgba(123, 227, 179, 0.1);
+  --mori-glow: rgba(123, 227, 179, 0.18);
+  --mori-logo-bg: #10251c;
+  --mori-logo-border: #2e6b52;
+  --mori-logo-leaf: #7be3b3;
+  --mori-logo-vein: #0f2a21;
+  --mori-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--mori-bg);
+  color: var(--mori-text);
+  font-family:
+    'Inter', 'SF Pro Display', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+::selection {
+  background: var(--mori-mint);
+  color: #07100c;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--mori-mint);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--mori-muted) 38%, transparent);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.v-application {
+  background: var(--mori-bg) !important;
+  color: var(--mori-text) !important;
+  font-family: inherit !important;
+}
+
+.mori-muted {
+  color: var(--mori-muted);
+}
+
+.mori-mono {
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+}
+
+.mori-eyebrow {
+  margin: 0;
+  color: var(--mori-mint);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+@keyframes mori-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mori-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -18px, 0) scale(1.04);
+  }
+}
+
+@keyframes mori-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 var(--mori-glow);
+  }
+  50% {
+    opacity: 0.72;
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#08110d" />
+    <meta
+      name="description"
+      content="MoriBot - 可扩展的 AI 助手后台控制器"
+    />
+    <title>MoriBot</title>
+    <script>
+      // Apply the saved theme before Vue mounts to avoid a light flash.
+      ;(function () {
+        try {
+          var theme = localStorage.getItem('moribot.theme') || 'dark'
+          document.documentElement.classList.toggle('moribot-dark', theme === 'dark')
+          document.documentElement.style.colorScheme = theme
+        } catch (error) {
+          document.documentElement.classList.add('moribot-dark')
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
