@@ -56,6 +56,28 @@ export interface MobileDevice {
 
 export type ProviderCategory = 'chat' | 'speech' | 'image'
 
+export interface ModelCapabilities {
+  input: string[]
+  output: string[]
+  tools: boolean
+  reasoning: boolean
+  context_window: number
+  source?: string
+}
+
+export interface ProviderModelInfo {
+  id: string
+  name: string
+  capabilities: ModelCapabilities
+  owned_by: string
+}
+
+export interface ProviderModelsResult {
+  models: ProviderModelInfo[]
+  message: string
+  manual_allowed: boolean
+}
+
 export interface ModelProvider {
   id: number
   category: ProviderCategory
@@ -64,6 +86,7 @@ export interface ModelProvider {
   base_url: string
   model: string
   options: Record<string, unknown>
+  capabilities: ModelCapabilities
   is_default: boolean
   enabled: boolean
   api_key_set: boolean

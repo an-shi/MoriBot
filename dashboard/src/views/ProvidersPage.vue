@@ -129,6 +129,39 @@ function testState(provider: ModelProvider): string {
   return provider.last_test_ok ? t('providers.testOk') : t('providers.testFailed')
 }
 
+function providerTypeName(provider: ModelProvider): string {
+  const type = catalog.value.types.find((item) => item.id === provider.provider_type)
+  return type?.name ?? provider.provider_type
+}
+
+function capabilityLabels(provider: ModelProvider): string[] {
+  const current = provider.capabilities
+  if (!current) {
+    return []
+  }
+  const labels: string[] = []
+  if (current.input?.includes('image')) {
+    labels.push(t('providers.capabilities.imageInput'))
+  }
+  if (current.input?.includes('audio')) {
+    labels.push(t('providers.capabilities.audioInput'))
+  }
+  if (current.tools) {
+    labels.push(t('providers.capabilities.tools'))
+  }
+  if (current.reasoning) {
+    labels.push(t('providers.capabilities.reasoning'))
+  }
+  if (current.context_window > 0) {
+    const size =
+      current.context_window >= 1_000_000
+        ? `${Math.round(current.context_window / 1_000_000)}M`
+        : `${Math.round(current.context_window / 1000)}K`
+    labels.push(t('providers.capabilities.context', { size }))
+  }
+  return labels
+}
+
 onMounted(() => {
   void loadCatalog()
   void loadProviders()
@@ -198,7 +231,7 @@ onMounted(() => {
                 </v-chip>
               </div>
             </div>
-            <span class="card-type">OpenAI Compatible</span>
+            <span class="card-type">{{ providerTypeName(provider) }}</span>
           </header>
 
           <dl class="meta-grid">
@@ -224,6 +257,17 @@ onMounted(() => {
               </dd>
             </div>
           </dl>
+
+          <div v-if="capabilityLabels(provider).length" class="card-capabilities">
+            <v-chip
+              v-for="label in capabilityLabels(provider)"
+              :key="label"
+              size="x-small"
+              variant="tonal"
+            >
+              {{ label }}
+            </v-chip>
+          </div>
 
           <p v-if="provider.last_test_message" class="test-message">
             {{ provider.last_test_message }}
@@ -507,6 +551,13 @@ onMounted(() => {
 
 .meta-muted {
   color: var(--mori-muted);
+}
+
+.card-capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 12px;
 }
 
 .test-message {

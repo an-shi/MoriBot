@@ -1,9 +1,11 @@
 import { http } from './http'
 import type {
   ApiResponse,
+  ModelCapabilities,
   ModelProvider,
   ProviderCatalog,
   ProviderCategory,
+  ProviderModelsResult,
   ProviderTestResult,
 } from '@/types/api'
 
@@ -15,6 +17,7 @@ export interface ProviderPayload {
   api_key: string
   model: string
   options: Record<string, unknown>
+  capabilities?: ModelCapabilities
   is_default?: boolean
   enabled?: boolean
 }
@@ -24,6 +27,21 @@ export type ProviderUpdatePayload = Partial<Omit<ProviderPayload, 'category'>>
 export const providersApi = {
   async catalog(): Promise<ProviderCatalog> {
     const response = await http.get<ApiResponse<ProviderCatalog>>('/providers/catalog')
+    return response.data.data
+  },
+
+  async fetchModels(payload: {
+    provider_type: string
+    category: ProviderCategory
+    base_url: string
+    api_key: string
+    provider_id?: number
+    options: Record<string, unknown>
+  }): Promise<ProviderModelsResult> {
+    const response = await http.post<ApiResponse<ProviderModelsResult>>(
+      '/providers/models',
+      payload,
+    )
     return response.data.data
   },
 

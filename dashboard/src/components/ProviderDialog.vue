@@ -5,9 +5,11 @@ import { useI18n } from 'vue-i18n'
 import { extractErrorMessage } from '@/api/http'
 import { providersApi, type ProviderPayload, type ProviderUpdatePayload } from '@/api/providers'
 import type {
+  ModelCapabilities,
   ModelProvider,
   ProviderCatalog,
   ProviderCategory,
+  ProviderModelInfo,
   ProviderPreset,
   ProviderTypeInfo,
 } from '@/types/api'
@@ -85,6 +87,11 @@ const isDefault = ref(false)
 const enabled = ref(true)
 const errorMessage = ref('')
 const saving = ref(false)
+const capabilities = ref<ModelCapabilities | null>(null)
+const modelOptions = ref<ProviderModelInfo[]>([])
+const modelsLoading = ref(false)
+const modelsMessage = ref('')
+const parameterPreset = ref('balanced')
 
 const temperature = ref<string | number>('')
 const maxTokens = ref<string | number>('')
@@ -143,6 +150,33 @@ const modelPlaceholder = computed(() => {
   )
 })
 
+const parameterPresetItems = computed(() => [
+  { title: t('providers.dialog.presetBalanced'), value: 'balanced' },
+  { title: t('providers.dialog.presetPrecise'), value: 'precise' },
+  { title: t('providers.dialog.presetCreative'), value: 'creative' },
+  { title: t('providers.dialog.presetCustom'), value: 'custom' },
+])
+
+const capabilityLabels = computed(() => {
+  const current = capabilities.value
+  if (!current) {
+    return []
+  }
+  const labels: string[] = []
+  if (current.input.includes('image')) labels.push(t('providers.capabilities.imageInput'))
+  if (current.input.includes('audio')) labels.push(t('providers.capabilities.audioInput'))
+  if (current.tools) labels.push(t('providers.capabilities.tools'))
+  if (current.reasoning) labels.push(t('providers.capabilities.reasoning'))
+  if (current.context_window > 0) {
+    const size =
+      current.context_window >= 1_000_000
+        ? `${Math.round(current.context_window / 1_000_000)}M`
+        : `${Math.round(current.context_window / 1000)}K`
+    labels.push(t('providers.capabilities.context', { size }))
+  }
+  return labels
+})
+
 const speechFormats = ['mp3', 'wav', 'opus', 'aac', 'flac']
 const imageSizes = ['1024x1024', '1024x1536', '1536x1024', '512x512', '256x256']
 const imageQualities = ['auto', 'high', 'medium', 'low', 'standard', 'hd']
@@ -163,6 +197,9 @@ function applyPreset(id: string): void {
   if (!model.value.trim() && models.length) {
     model.value = models[0]
   }
+  modelOptions.value = []
+  capabilities.value = null
+  modelsMessage.value = ''
   if (preset.provider_type === 'elevenlabs' && (!voice.value || voice.value === 'alloy')) {
     voice.value = '21m00Tcm4TlvDq8ikWAM'
   }
@@ -176,6 +213,68 @@ function applyType(id: string): void {
   }
   if (id === 'elevenlabs' && (!voice.value || voice.value === 'alloy')) {
     voice.value = '21m00Tcm4TlvDq8ikWAM'
+  }
+  modelOptions.value = []
+  capabilities.value = null
+  modelsMessage.value = ''
+}
+
+function applyParameterPreset(value: string): void {
+  parameterPreset.value = value
+  if (value === 'balanced') {
+    temperature.value = 0.7
+    maxTokens.value = 2048
+  } else if (value === 'precise') {
+    temperature.value = 0.2
+    maxTokens.value = 1024
+  } else if (value === 'creative') {
+    temperature.value = 1.0
+    maxTokens.value = 4096
+  }
+}
+
+function applyModelCapabilities(value: string | null): void {
+  const option = modelOptions.value.find((item) => item.id === value)
+  capabilities.value = option?.capabilities ?? null
+}
+
+function onModelChange(value: string | null): void {
+  model.value = value ?? ''
+  applyModelCapabilities(value)
+}
+
+async function fetchModels(): Promise<void> {
+  if (!baseUrl.value.trim()) {
+    errorMessage.value = t('providers.dialog.required')
+    return
+  }
+  modelsLoading.value = true
+  modelsMessage.value = ''
+  errorMessage.value = ''
+  try {
+    const result = await providersApi.fetchModels({
+      provider_type: providerType.value,
+      category: activeCategory.value,
+      base_url: baseUrl.value.trim(),
+      api_key: apiKey.value.trim(),
+      provider_id: props.provider?.id,
+      options: buildOptions(),
+    })
+    modelOptions.value = result.models
+    modelsMessage.value =
+      result.message ||
+      t('providers.dialog.modelsFetched', { count: result.models.length })
+    if (!model.value && result.models.length) {
+      model.value = result.models[0].id
+      applyModelCapabilities(model.value)
+    } else if (model.value) {
+      applyModelCapabilities(model.value)
+    }
+  } catch (error) {
+    modelsMessage.value = `${t('providers.dialog.fetchModels')}: ${extractErrorMessage(error)}`
+    modelOptions.value = []
+  } finally {
+    modelsLoading.value = false
   }
 }
 
@@ -192,15 +291,43 @@ function resetForm(): void {
 
   const options = (provider?.options ?? {}) as Record<string, unknown>
   apiVersion.value = String(options.api_version ?? '2024-10-21')
-  temperature.value = (options.temperature as string | number) ?? ''
-  maxTokens.value = (options.max_tokens as string | number) ?? ''
-  voice.value = String(options.voice ?? (providerType.value === 'elevenlabs' ? '21m00Tcm4TlvDq8ikWAM' : 'alloy'))
+  temperature.value = (options.temperature as string | number) ?? (provider ? '' : 0.7)
+  maxTokens.value = (options.max_tokens as string | number) ?? (provider ? '' : 2048)
+  voice.value = String(
+    options.voice ??
+      (providerType.value === 'elevenlabs' ? '21m00Tcm4TlvDq8ikWAM' : 'alloy'),
+  )
   audioFormat.value = String(options.response_format ?? 'mp3')
-  speed.value = (options.speed as string | number) ?? ''
+  speed.value = (options.speed as string | number) ?? (provider ? '' : 1.0)
   imageSize.value = String(options.size ?? '1024x1024')
   imageQuality.value = String(options.quality ?? '')
   imageCount.value = (options.n as string | number) ?? 1
   responseFormat.value = String(options.response_format ?? '')
+
+  capabilities.value = provider?.capabilities ?? null
+  modelOptions.value = provider?.model
+    ? [
+        {
+          id: provider.model,
+          name: provider.model,
+          capabilities: provider.capabilities,
+          owned_by: '',
+        },
+      ]
+    : []
+  modelsMessage.value = ''
+
+  const temp = Number(temperature.value)
+  const tokens = Number(maxTokens.value)
+  if (temp === 0.7 && tokens === 2048) {
+    parameterPreset.value = 'balanced'
+  } else if (temp === 0.2 && tokens === 1024) {
+    parameterPreset.value = 'precise'
+  } else if (temp === 1.0 && tokens === 4096) {
+    parameterPreset.value = 'creative'
+  } else {
+    parameterPreset.value = 'custom'
+  }
 
   const matchedPreset = presetsForCategory.value.find(
     (preset) =>
@@ -270,6 +397,7 @@ async function save(): Promise<void> {
         base_url: baseUrl.value.trim(),
         model: model.value.trim(),
         options: buildOptions(),
+        capabilities: capabilities.value ?? undefined,
         is_default: isDefault.value,
         enabled: enabled.value,
       }
@@ -286,6 +414,7 @@ async function save(): Promise<void> {
         api_key: apiKey.value.trim(),
         model: model.value.trim(),
         options: buildOptions(),
+        capabilities: capabilities.value ?? undefined,
         is_default: isDefault.value,
         enabled: enabled.value,
       }
@@ -406,20 +535,69 @@ async function save(): Promise<void> {
             </div>
             <div class="field">
               <label>{{ t('providers.dialog.model') }}</label>
-              <v-text-field
+              <v-combobox
                 v-model="model"
+                :items="modelOptions"
+                item-title="id"
+                item-value="id"
                 variant="outlined"
                 density="comfortable"
                 hide-details="auto"
                 :placeholder="modelPlaceholder"
                 prepend-inner-icon="mdi-cube-outline"
-              />
+                :loading="modelsLoading"
+                @update:model-value="onModelChange"
+              >
+                <template #append>
+                  <v-btn
+                    icon
+                    variant="text"
+                    size="x-small"
+                    :loading="modelsLoading"
+                    :aria-label="t('providers.dialog.fetchModels')"
+                    @click.stop="fetchModels"
+                  >
+                    <v-icon size="17">mdi-refresh</v-icon>
+                    <v-tooltip activator="parent" location="top">
+                      {{ t('providers.dialog.fetchModels') }}
+                    </v-tooltip>
+                  </v-btn>
+                </template>
+              </v-combobox>
             </div>
           </div>
-          <p class="field-hint">{{ t('providers.dialog.apiKeyHint') }}</p>
+          <div class="field-hints">
+            <p class="field-hint">{{ t('providers.dialog.apiKeyHint') }}</p>
+            <p class="field-hint">
+              {{ modelsMessage || t('providers.dialog.fetchModelsHint') }}
+            </p>
+          </div>
+          <div v-if="capabilityLabels.length" class="capability-chips">
+            <span class="capability-label">{{ t('providers.dialog.capabilities') }}</span>
+            <v-chip v-for="label in capabilityLabels" :key="label" size="x-small" variant="tonal">
+              {{ label }}
+            </v-chip>
+          </div>
 
           <div class="options-panel">
             <p class="options-title">{{ t('providers.dialog.advanced') }}</p>
+
+            <div v-if="activeCategory === 'chat'" class="form-row form-row--two">
+              <div class="field">
+                <label>{{ t('providers.dialog.parameterPreset') }}</label>
+                <v-select
+                  v-model="parameterPreset"
+                  :items="parameterPresetItems"
+                  variant="outlined"
+                  density="comfortable"
+                  hide-details="auto"
+                  @update:model-value="applyParameterPreset"
+                />
+              </div>
+            </div>
+            <p v-if="activeCategory === 'chat'" class="field-hint options-hint">
+              {{ t('providers.dialog.chatHint') }}
+            </p>
 
             <div v-if="activeCategory === 'chat'" class="form-row form-row--two">
               <div class="field">
@@ -434,6 +612,7 @@ async function save(): Promise<void> {
                   density="comfortable"
                   hide-details="auto"
                   placeholder="0.7"
+                  @update:model-value="parameterPreset = 'custom'"
                 />
               </div>
               <div class="field">
@@ -446,6 +625,7 @@ async function save(): Promise<void> {
                   density="comfortable"
                   hide-details="auto"
                   placeholder="2048"
+                  @update:model-value="parameterPreset = 'custom'"
                 />
               </div>
             </div>
@@ -487,8 +667,11 @@ async function save(): Promise<void> {
                 />
               </div>
             </div>
+            <p v-if="activeCategory === 'speech'" class="field-hint options-hint">
+              {{ t('providers.dialog.speechHint') }}
+            </p>
 
-            <div v-else class="form-row form-row--two">
+            <div v-if="activeCategory === 'image'" class="form-row form-row--two">
               <div class="field">
                 <label>{{ t('providers.dialog.imageSize') }}</label>
                 <v-combobox
@@ -537,6 +720,9 @@ async function save(): Promise<void> {
                 />
               </div>
             </div>
+            <p v-if="activeCategory === 'image'" class="field-hint options-hint">
+              {{ t('providers.dialog.imageHint') }}
+            </p>
           </div>
 
           <div class="switch-row">
@@ -642,6 +828,32 @@ async function save(): Promise<void> {
   color: var(--mori-muted);
   font-size: 10.5px;
   line-height: 1.6;
+}
+
+.field-hints {
+  margin: 2px 0 14px;
+}
+
+.field-hints .field-hint {
+  margin: 0 0 4px;
+}
+
+.capability-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 16px;
+}
+
+.capability-label {
+  color: var(--mori-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.options-hint {
+  margin: 4px 0 12px;
 }
 
 .options-panel {
