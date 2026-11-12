@@ -90,6 +90,18 @@ PROVIDER_TYPES: dict[str, ProviderTypeSpec] = {
         default_base_url="https://api.elevenlabs.io/v1",
         docs_url="https://elevenlabs.io/docs/api-reference/text-to-speech",
     ),
+    "minimax": ProviderTypeSpec(
+        id="minimax",
+        name="MiniMax",
+        description="Native MiniMax chat, synchronous T2A speech and H3 image generation.",
+        categories=(
+            ProviderCategory.CHAT,
+            ProviderCategory.SPEECH,
+            ProviderCategory.IMAGE,
+        ),
+        default_base_url="https://api.minimax.io/v1",
+        docs_url="https://platform.minimax.io/docs/api-reference/api-overview",
+    ),
 }
 
 
@@ -206,11 +218,20 @@ PROVIDER_PRESETS: tuple[ProviderPreset, ...] = (
     ProviderPreset(
         id="minimax",
         name="MiniMax",
-        provider_type="openai_compatible",
-        categories=(ProviderCategory.CHAT,),
-        base_url="https://api.minimax.chat/v1",
-        models=_models(chat=("MiniMax-M2", "abab6.5s-chat")),
-        docs_url="https://platform.minimaxi.com/document/",
+        provider_type="minimax",
+        categories=(
+            ProviderCategory.CHAT,
+            ProviderCategory.SPEECH,
+            ProviderCategory.IMAGE,
+        ),
+        base_url="https://api.minimax.io/v1",
+        models=_models(
+            chat=("MiniMax-M3.1-Flash", "MiniMax-M3"),
+            speech=("speech-2.8-turbo", "speech-2.8-hd"),
+            image=("MiniMax-H3-Image", "MiniMax-H3-Image-Highspeed"),
+        ),
+        docs_url="https://platform.minimax.io/docs/api-reference/api-overview",
+        voice="English_expressive_narrator",
     ),
     ProviderPreset(
         id="doubao",

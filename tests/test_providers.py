@@ -150,6 +150,7 @@ def test_provider_catalog_and_native_type_validation(tmp_path):
             "google_gemini",
             "azure_openai",
             "elevenlabs",
+            "minimax",
         } <= type_ids
 
         presets = catalog.json()["data"]["presets"]
@@ -163,6 +164,7 @@ def test_provider_catalog_and_native_type_validation(tmp_path):
             "groq",
             "together",
             "siliconflow",
+            "minimax",
         } <= speech_presets
         assert {
             "openai",
@@ -172,10 +174,13 @@ def test_provider_catalog_and_native_type_validation(tmp_path):
             "siliconflow",
             "deepinfra",
             "doubao",
+            "minimax",
         } <= image_presets
         assert by_id["groq"]["voice"] == "troy"
         assert by_id["together"]["voice"] == "af_heart"
         assert by_id["siliconflow"]["voice"] == "FunAudioLLM/CosyVoice2-0.5B:alex"
+        assert by_id["minimax"]["provider_type"] == "minimax"
+        assert by_id["minimax"]["voice"] == "English_expressive_narrator"
 
         anthropic = _provider_payload("chat", "Claude", "claude-sonnet-4-5")
         anthropic["provider_type"] = "anthropic"
@@ -183,6 +188,23 @@ def test_provider_catalog_and_native_type_validation(tmp_path):
         created = client.post("/api/v1/providers", headers=headers, json=anthropic)
         assert created.status_code == 200
         assert created.json()["data"]["provider_type"] == "anthropic"
+
+        for category, name, model, options in (
+            (
+                "speech",
+                "MiniMax Voice",
+                "speech-2.8-turbo",
+                {"voice": "English_expressive_narrator"},
+            ),
+            ("image", "MiniMax Image", "MiniMax-H3-Image", {"size": "1024x1024"}),
+        ):
+            payload = _provider_payload(category, name, model)
+            payload["provider_type"] = "minimax"
+            payload["base_url"] = "https://api.minimax.io/v1"
+            payload["options"] = options
+            response = client.post("/api/v1/providers", headers=headers, json=payload)
+            assert response.status_code == 200, response.text
+            assert response.json()["data"]["provider_type"] == "minimax"
 
         image_with_claude = _provider_payload("image", "Claude Image", "claude")
         image_with_claude["provider_type"] = "anthropic"

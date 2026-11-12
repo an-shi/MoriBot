@@ -19,6 +19,7 @@ from .base import Provider, ProviderCategory, ProviderError
 from .catalog import provider_type_supports
 from .elevenlabs import ElevenLabsSpeechProvider
 from .gemini import GeminiChatProvider, GeminiImageProvider
+from .minimax import MiniMaxChatProvider, MiniMaxImageProvider, MiniMaxSpeechProvider
 from .openai_compatible import (
     OpenAICompatibleChatProvider,
     OpenAICompatibleImageProvider,
@@ -103,5 +104,12 @@ def build_provider(spec: ProviderConfigSpec) -> Provider:
 
     if spec.provider_type == "elevenlabs":
         return ElevenLabsSpeechProvider(provider_id, model=spec.model, config=config)
+
+    if spec.provider_type == "minimax":
+        if spec.category == ProviderCategory.CHAT:
+            return MiniMaxChatProvider(provider_id, model=spec.model, config=config)
+        if spec.category == ProviderCategory.SPEECH:
+            return MiniMaxSpeechProvider(provider_id, model=spec.model, config=config)
+        return MiniMaxImageProvider(provider_id, model=spec.model, config=config)
 
     raise ProviderError(f"Unsupported provider type: {spec.provider_type}")

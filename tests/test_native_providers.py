@@ -13,6 +13,11 @@ from moribot.core.provider.anthropic import AnthropicChatProvider
 from moribot.core.provider.azure_openai import AzureOpenAIChatProvider
 from moribot.core.provider.elevenlabs import ElevenLabsSpeechProvider
 from moribot.core.provider.gemini import GeminiChatProvider, GeminiImageProvider
+from moribot.core.provider.minimax import (
+    MiniMaxChatProvider,
+    MiniMaxImageProvider,
+    MiniMaxSpeechProvider,
+)
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -105,6 +110,17 @@ class _Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(audio)
             return
+        if "/t2a_v2" in self.path:
+            self._json(
+                {
+                    "data": {"audio": b"minimax-audio".hex()},
+                    "base_resp": {"status_code": 0, "status_msg": "success"},
+                }
+            )
+            return
+        if "/images/generations" in self.path:
+            self._json({"data": [{"url": "https://example.com/minimax.jpg"}]})
+            return
         self.send_response(404)
         self.end_headers()
 
@@ -152,6 +168,25 @@ def test_native_providers_http_contracts():
         model="eleven_multilingual_v2",
         config={"base_url": f"{root}/v1", "api_key": "eleven-key"},
     )
+    minimax = MiniMaxChatProvider(
+        "mm",
+        model="MiniMax-M3",
+        config={"base_url": f"{root}/v1", "api_key": "minimax-key"},
+    )
+    minimax_speech = MiniMaxSpeechProvider(
+        "mms",
+        model="speech-2.8-turbo",
+        config={
+            "base_url": f"{root}/v1",
+            "api_key": "minimax-key",
+            "voice": "English_expressive_narrator",
+        },
+    )
+    minimax_image = MiniMaxImageProvider(
+        "mmi",
+        model="MiniMax-H3-Image",
+        config={"base_url": f"{root}/v1", "api_key": "minimax-key"},
+    )
 
     async def run() -> None:
         try:
@@ -173,12 +208,25 @@ def test_native_providers_http_contracts():
             audio = await eleven.synthesize("hello")
             assert audio.audio == b"elevenlabs-audio"
             assert audio.format == "mp3"
+
+            minimax_reply = await minimax.chat([ChatMessage(role="user", content="hi")])
+            assert minimax_reply.text == "azure reply"
+
+            minimax_audio = await minimax_speech.synthesize("hello")
+            assert minimax_audio.audio == b"minimax-audio"
+            assert minimax_audio.format == "mp3"
+
+            minimax_images = await minimax_image.generate("a leaf")
+            assert minimax_images[0].url == "https://example.com/minimax.jpg"
         finally:
             await anthropic.close()
             await gemini.close()
             await gemini_image.close()
             await azure.close()
             await eleven.close()
+            await minimax.close()
+            await minimax_speech.close()
+            await minimax_image.close()
             server.shutdown()
             thread.join(timeout=2)
 
@@ -199,3 +247,21 @@ def test_native_providers_http_contracts():
         request for path, request in by_path.items() if "/text-to-speech/" in path
     )
     assert eleven_request["headers"]["xi-api-key"] == "eleven-key"
+
+    minimax_speech_request = next(request for path, request in by_path.items() if "/t2a_v2" in path)
+    minimax_headers = {
+        key.lower(): value for key, value in minimax_speech_request["headers"].items()
+    }
+    assert minimax_headers["authorization"] == "Bearer minimax-key"
+    assert minimax_speech_request["body"]["text"] == "hello"
+    assert minimax_speech_request["body"]["output_format"] == "hex"
+    assert (
+        minimax_speech_request["body"]["voice_setting"]["voice_id"] == "English_expressive_narrator"
+    )
+    assert minimax_speech_request["body"]["audio_setting"]["format"] == "mp3"
+
+    minimax_image_request = next(
+        request for path, request in by_path.items() if "/images/generations" in path
+    )
+    assert minimax_image_request["body"]["model"] == "MiniMax-H3-Image"
+    assert minimax_image_request["body"]["prompt"] == "a leaf"
