@@ -63,6 +63,7 @@ const roleLabel = computed(() =>
 )
 const pageTitle = computed(() => t(String(route.meta.titleKey || 'nav.home')))
 const version = computed(() => system.publicInfo?.version || APP_VERSION)
+const brandName = computed(() => system.publicInfo?.name || 'MoriBot')
 const coreRunning = computed(() => Boolean(system.info?.running))
 const mobileStatus = computed(() =>
   t('layout.mobileStatus', { count: system.info?.mobile_online ?? 0 }),
@@ -143,7 +144,7 @@ async function handleLogout(): Promise<void> {
   <v-app-bar flat height="72" class="mori-appbar">
     <v-app-bar-nav-icon v-if="!mdAndUp" @click="drawer = true" />
     <div class="appbar-title">
-      <span class="appbar-kicker">MORIBOT / {{ pageTitle }}</span>
+      <span class="appbar-kicker">{{ t('layout.appbarKicker', { product: brandName, page: pageTitle }) }}</span>
       <strong>{{ pageTitle }}</strong>
     </div>
 

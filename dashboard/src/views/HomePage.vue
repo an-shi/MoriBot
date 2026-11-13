@@ -175,7 +175,7 @@ onUnmounted(() => {
     <section class="model-health" :aria-label="t('home.modelHealth')">
       <header class="health-head">
         <div>
-          <p class="mori-eyebrow">MODEL HEALTH</p>
+          <p class="mori-eyebrow">{{ t('home.healthEyebrow') }}</p>
           <h2>{{ t('home.modelHealth') }}</h2>
           <p class="health-subtitle">{{ t('home.modelHealthDesc') }}</p>
         </div>

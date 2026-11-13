@@ -195,11 +195,11 @@ onUnmounted(() => {
       </div>
 
       <div class="log-columns">
-        <span>TIME</span>
-        <span>LEVEL</span>
-        <span>SOURCE</span>
-        <span>MODULE</span>
-        <span>MESSAGE</span>
+        <span>{{ t('logs.tableTime') }}</span>
+        <span>{{ t('logs.tableLevel') }}</span>
+        <span>{{ t('logs.tableSource') }}</span>
+        <span>{{ t('logs.tableModule') }}</span>
+        <span>{{ t('logs.tableMessage') }}</span>
       </div>
 
       <div v-if="loading && entries.length === 0" class="log-empty">

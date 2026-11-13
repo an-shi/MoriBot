@@ -166,7 +166,7 @@ async function submit(): Promise<void> {
             <MoriLogo :size="46" />
             <div class="form-brand-copy">
               <strong>{{ brandName }}</strong>
-              <span>AI Assistant Control Plane</span>
+              <span>{{ t('login.tagline') }}</span>
             </div>
           </div>
 

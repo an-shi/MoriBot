@@ -20,6 +20,7 @@ export default {
     pageTitle: 'Sign in',
     secureAccess: 'SECURE ACCESS',
     kicker: 'AI ASSISTANT CONTROL PLANE',
+    tagline: 'AI Assistant Control Plane',
     titleLine1: 'Let your agents',
     titleLine2: 'grow naturally.',
     description:
@@ -77,6 +78,7 @@ export default {
     neverLoggedIn: 'Never',
     logout: 'Sign out',
     loggingOut: 'Signing out…',
+    appbarKicker: '{product} / {page}',
   },
   home: {
     overview: 'OVERVIEW',
@@ -104,6 +106,7 @@ export default {
     footer: 'MoriBot · Modular AI Assistant Control Plane',
     sqlite: 'SQLite connected',
     modelHealth: 'Model availability',
+    healthEyebrow: 'MODEL HEALTH',
     modelHealthDesc: 'Latest connectivity results; configure automatic checks in Settings.',
     health: {
       summary: '{total} models · {available} available · {failed} failed · {untested} untested',
@@ -138,6 +141,11 @@ export default {
     empty: 'No logs yet',
     loadFailed: 'Failed to load logs',
     count: 'Showing {shown} / {total}',
+    tableTime: 'TIME',
+    tableLevel: 'LEVEL',
+    tableSource: 'SOURCE',
+    tableModule: 'MODULE',
+    tableMessage: 'MESSAGE',
   },
   settings: {
     pageTitle: 'Settings',
