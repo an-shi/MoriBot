@@ -186,6 +186,8 @@ def test_provider_catalog_and_native_type_validation(tmp_path):
         assert by_id["minimax-cn"]["voice"] == "male-qn-qingse"
         fallbacks = app.state.core.config.get("provider.media_model_fallbacks")
         assert fallbacks["minimax"]["speech"] == ["speech-2.8-turbo", "speech-2.8-hd"]
+        retired = app.state.core.config.get("provider.retired_model_prefixes")
+        assert retired["minimax"] == ["minimax-m2"]
 
         anthropic = _provider_payload("chat", "Claude", "claude-sonnet-4-5")
         anthropic["provider_type"] = "anthropic"

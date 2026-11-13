@@ -54,6 +54,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
                 ],
             },
         },
+        # Hide retired models that vendors still return from /models.
+        # Shape: {provider_type: [model_id_prefix, ...]}.
+        "retired_model_prefixes": {
+            "minimax": ["minimax-m2"],
+        },
     },
     "platform": {},
     "mobile": {

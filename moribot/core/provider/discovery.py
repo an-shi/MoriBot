@@ -74,7 +74,6 @@ _IMAGE_MARKERS = (
     "sdxl",
     "imagen",
 )
-_MINIMAX_RETIRED_PREFIXES = ("minimax-m2",)
 
 
 @dataclass(slots=True)
@@ -206,13 +205,12 @@ def _filter_models(
     category: str,
     models: list[ModelInfo],
     *,
-    provider_type: str = "",
     fallback_to_all: bool = True,
+    retired_prefixes: list[str] | None = None,
 ) -> list[ModelInfo]:
-    if provider_type == "minimax":
-        models = [
-            model for model in models if not model.id.lower().startswith(_MINIMAX_RETIRED_PREFIXES)
-        ]
+    prefixes = tuple(prefix.lower() for prefix in (retired_prefixes or ()) if prefix)
+    if prefixes:
+        models = [model for model in models if not model.id.lower().startswith(prefixes)]
     relevant = [model for model in models if _category_relevant(category, model.id)]
     # A custom gateway may expose names our heuristics do not recognise.
     if relevant:
@@ -272,6 +270,7 @@ async def list_models(
     api_key: str,
     options: dict[str, Any] | None = None,
     fallback_models: dict[str, list[str]] | None = None,
+    retired_model_prefixes: list[str] | None = None,
 ) -> list[ModelInfo]:
     """Fetch and normalize a provider's model list."""
     options = options or {}
@@ -307,7 +306,7 @@ async def list_models(
                     owned_by=str(raw.get("type") or "anthropic"),
                 )
             )
-        return _filter_models(category, models, provider_type=provider_type)
+        return _filter_models(category, models, retired_prefixes=retired_model_prefixes)
 
     if provider_type == "google_gemini":
         data = await _get_json(
@@ -336,7 +335,7 @@ async def list_models(
                     owned_by="google",
                 )
             )
-        return _filter_models(category, models, provider_type=provider_type)
+        return _filter_models(category, models, retired_prefixes=retired_model_prefixes)
 
     if provider_type == "elevenlabs":
         data = await _get_json(
@@ -398,11 +397,11 @@ async def list_models(
         relevant = _filter_models(
             category,
             models,
-            provider_type=provider_type,
             fallback_to_all=False,
+            retired_prefixes=retired_model_prefixes,
         )
         if relevant:
             return relevant
         fallback_ids = (fallback_models or {}).get(category, [])
         return _fallback_models(category, fallback_ids)
-    return _filter_models(category, models, provider_type=provider_type)
+    return _filter_models(category, models, retired_prefixes=retired_model_prefixes)

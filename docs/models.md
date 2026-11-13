@@ -42,7 +42,7 @@ MoriBot 把模型分成三个固定角色，配置保存在数据库 `model_prov
 
 返回的列表会按当前角色过滤：主模型排除 embedding、TTS、图片生成等模型；语音模型只保留 TTS/语音模型；图片模型只保留图片生成模型。若供应商没有返回可识别列表，界面会提示失败原因并保留手动输入，不会阻塞保存。
 
-MiniMax 的 `/models` 接口会同时返回已下线的 `MiniMax-M2.x` 系列，MoriBot 会自动过滤；该接口只列出对话模型，因此语音/图片分类会使用 `config.json` 中 `provider.media_model_fallbacks` 的条目。后续 MiniMax 更新模型时，只需修改配置并重启，不需要改代码。
+MiniMax 的 `/models` 接口会同时返回已下线的 `MiniMax-M2.x` 系列，MoriBot 会根据 `config.json` 中 `provider.retired_model_prefixes` 自动过滤；该接口只列出对话模型，因此语音/图片分类会使用 `provider.media_model_fallbacks` 的条目。后续 MiniMax 更新模型时，只需修改配置并重启，不需要改代码。
 
 获取模型列表的同时会解析能力信息并写入 `capabilities`：
 
@@ -224,7 +224,7 @@ curl -X POST http://127.0.0.1:6186/api/v1/providers \
 
 - 原生适配器当前覆盖 Anthropic、Gemini、Azure OpenAI、ElevenLabs、MiniMax；其余厂商通过 OpenAI 兼容端点接入。
 - MiniMax 语音使用原生 `POST /v1/t2a_v2` 接口（返回 hex 音频），图片使用 H3 的 `/v1/images/generations`；国际账号使用 `api.minimax.io`，国内账号使用 `api.minimax.cn`，两者的 API Key 不能混用。国内语音如要求 `GroupId`，可在配置的 `options.group_id` 中补充。
-- MiniMax 的 `/models` 不返回语音/图片模型，相关下拉项来自 `config.json` 的 `provider.media_model_fallbacks`；更新模型无需改代码。
+- MiniMax 的 `/models` 不返回语音/图片模型，相关下拉项来自 `config.json` 的 `provider.media_model_fallbacks`；已下线模型通过 `provider.retired_model_prefixes` 过滤。更新模型无需改代码。
 - 百度文心、腾讯混元、讯飞星火等原生签名协议未单独实现，请使用其 OpenAI 兼容入口或自建网关。
 - Gemini 目前支持 Gemini Image（`gemini-2.5-flash-image`），暂未接入 Imagen `:predict` 与 Gemini TTS。
 - 部分供应商的 `/models` 只返回模型 ID，不返回模态；此时 `capabilities.source` 为 `heuristic`，按名称推断，用户仍可手动修改模型名后重新获取。

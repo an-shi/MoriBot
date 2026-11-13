@@ -194,6 +194,7 @@ def test_discovery_filters_retired_minimax_models_and_falls_back_for_media():
                 category="chat",
                 base_url=base_url,
                 api_key="test",
+                retired_model_prefixes=["minimax-m2"],
             )
             assert {model.id for model in chat} == {"MiniMax-M3.1-Flash", "MiniMax-M3"}
 
@@ -206,6 +207,7 @@ def test_discovery_filters_retired_minimax_models_and_falls_back_for_media():
                     "speech": ["speech-2.8-turbo", "speech-2.8-hd"],
                     "image": ["MiniMax-H3-Image", "MiniMax-H3-Image-Highspeed"],
                 },
+                retired_model_prefixes=["minimax-m2"],
             )
             assert {model.id for model in speech} == {
                 "speech-2.8-turbo",
@@ -222,6 +224,7 @@ def test_discovery_filters_retired_minimax_models_and_falls_back_for_media():
                     "speech": ["speech-2.8-turbo", "speech-2.8-hd"],
                     "image": ["MiniMax-H3-Image", "MiniMax-H3-Image-Highspeed"],
                 },
+                retired_model_prefixes=["minimax-m2"],
             )
             assert {model.id for model in image} == {
                 "MiniMax-H3-Image",

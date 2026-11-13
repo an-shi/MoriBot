@@ -204,6 +204,9 @@ uv run main.py
         "speech": ["speech-2.8-turbo", "speech-2.8-hd"],
         "image": ["MiniMax-H3-Image", "MiniMax-H3-Image-Highspeed"]
       }
+    },
+    "retired_model_prefixes": {
+      "minimax": ["minimax-m2"]
     }
   },
   "platform": {},
@@ -214,7 +217,7 @@ uv run main.py
 }
 ```
 
-`provider.media_model_fallbacks` 用于 MiniMax 这类 `/models` 不返回语音/图片模型的供应商。后续模型更新时直接修改该配置并重启即可，不需要改代码。
+`provider.media_model_fallbacks` 用于 MiniMax 这类 `/models` 不返回语音/图片模型的供应商；`provider.retired_model_prefixes` 用于隐藏接口仍返回但已下线的模型。后续模型更新时直接修改这两个配置并重启即可，不需要改代码。
 
 常用环境变量（可放在项目根目录的 `.env`）：
 

@@ -84,6 +84,7 @@ class ProviderConfigService:
                 api_key=api_key,
                 options=payload.options,
                 fallback_models=self._media_model_fallbacks(provider_type),
+                retired_model_prefixes=self._retired_model_prefixes(provider_type),
             )
         except Exception as exc:
             detail = str(exc)[:300]
@@ -388,6 +389,16 @@ class ProviderConfigService:
                 str(value) for value in values if str(value).strip()
             ]
         return result
+
+    def _retired_model_prefixes(self, provider_type: str) -> list[str]:
+        """Read user-editable retired model prefixes from config.json."""
+        raw = self.core.config.get("provider.retired_model_prefixes", {})
+        if not isinstance(raw, dict):
+            return []
+        values = raw.get(provider_type, [])
+        if not isinstance(values, list):
+            return []
+        return [str(value).strip() for value in values if str(value).strip()]
 
     @staticmethod
     def _normalize_capabilities(value: dict) -> dict:
