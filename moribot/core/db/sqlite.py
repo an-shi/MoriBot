@@ -5,11 +5,20 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import func, update
+from sqlalchemy import delete, func, update
 from sqlmodel import select
 
 from .base import BaseDatabase
-from .models import CharacterCard, MobileDevice, MobilePairingCode, ModelProvider, User, utcnow
+from .models import (
+    CharacterCard,
+    Conversation,
+    ConversationMessage,
+    MobileDevice,
+    MobilePairingCode,
+    ModelProvider,
+    User,
+    utcnow,
+)
 
 
 class SQLiteDatabase(BaseDatabase):
@@ -378,3 +387,171 @@ class SQLiteDatabase(BaseDatabase):
                     .where(column == provider_id)
                     .values({column.key: None, "updated_at": utcnow()})
                 )
+
+    # -- Conversations ----------------------------------------------------
+
+    async def create_conversation(self, values: dict) -> Conversation:
+        conversation = Conversation(**values)
+        async with self.session() as session:
+            session.add(conversation)
+            await session.flush()
+            await session.refresh(conversation)
+        return conversation
+
+    async def get_conversation(self, conversation_id: str) -> Conversation | None:
+        async with self.session() as session:
+            return await session.get(Conversation, conversation_id)
+
+    async def list_conversations(
+        self,
+        user_id: int,
+        *,
+        character_id: int | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[Conversation]:
+        async with self.session() as session:
+            statement = select(Conversation).where(Conversation.user_id == user_id)
+            if character_id is not None:
+                statement = statement.where(Conversation.character_id == character_id)
+            statement = (
+                statement.order_by(
+                    Conversation.updated_at.desc(),
+                    Conversation.created_at.desc(),
+                )
+                .offset(offset)
+                .limit(limit)
+            )
+            result = await session.execute(statement)
+            return list(result.scalars().all())
+
+    async def update_conversation(
+        self,
+        conversation_id: str,
+        values: dict,
+    ) -> Conversation | None:
+        async with self.session() as session:
+            conversation = await session.get(Conversation, conversation_id)
+            if conversation is None:
+                return None
+            for key, value in values.items():
+                setattr(conversation, key, value)
+            self._touch(conversation)
+            session.add(conversation)
+            await session.flush()
+            await session.refresh(conversation)
+            return conversation
+
+    async def delete_conversation(self, conversation_id: str) -> bool:
+        async with self.session() as session:
+            conversation = await session.get(Conversation, conversation_id)
+            if conversation is None:
+                return False
+            await session.execute(
+                delete(ConversationMessage).where(
+                    ConversationMessage.conversation_id == conversation_id
+                )
+            )
+            await session.delete(conversation)
+            return True
+
+    async def list_conversation_messages(
+        self,
+        conversation_id: str,
+        *,
+        limit: int = 50,
+        before_id: int | None = None,
+        after_id: int | None = None,
+    ) -> tuple[list[ConversationMessage], bool]:
+        if before_id is not None and after_id is not None:
+            raise ValueError("before_id and after_id are mutually exclusive")
+
+        fetch = max(1, limit) + 1
+        async with self.session() as session:
+            statement = select(ConversationMessage).where(
+                ConversationMessage.conversation_id == conversation_id
+            )
+            if before_id is not None:
+                statement = (
+                    statement.where(ConversationMessage.id < before_id)
+                    .order_by(ConversationMessage.id.desc())
+                    .limit(fetch)
+                )
+            elif after_id is not None:
+                statement = (
+                    statement.where(ConversationMessage.id > after_id)
+                    .order_by(ConversationMessage.id.asc())
+                    .limit(fetch)
+                )
+            else:
+                statement = statement.order_by(ConversationMessage.id.desc()).limit(fetch)
+
+            result = await session.execute(statement)
+            messages = list(result.scalars().all())
+
+        has_more = len(messages) > limit
+        if after_id is not None:
+            if has_more:
+                messages = messages[:limit]
+        else:
+            messages.reverse()
+            if has_more:
+                messages = messages[1:]
+        return messages, has_more
+
+    async def list_conversation_messages_by_client_id(
+        self,
+        conversation_id: str,
+        client_message_id: str,
+    ) -> list[ConversationMessage]:
+        if not client_message_id:
+            return []
+        async with self.session() as session:
+            result = await session.execute(
+                select(ConversationMessage)
+                .where(
+                    ConversationMessage.conversation_id == conversation_id,
+                    ConversationMessage.client_message_id == client_message_id,
+                )
+                .order_by(ConversationMessage.id.asc())
+            )
+            return list(result.scalars().all())
+
+    async def append_conversation_exchange(
+        self,
+        conversation_id: str,
+        *,
+        user_values: dict,
+        assistant_values: dict,
+        title: str = "",
+    ) -> tuple[ConversationMessage, ConversationMessage, Conversation] | None:
+        async with self.session() as session:
+            conversation = await session.get(Conversation, conversation_id)
+            if conversation is None:
+                return None
+
+            user_message = ConversationMessage(
+                conversation_id=conversation_id,
+                **user_values,
+            )
+            assistant_message = ConversationMessage(
+                conversation_id=conversation_id,
+                **assistant_values,
+            )
+            session.add_all((user_message, assistant_message))
+            await session.flush()
+
+            conversation.message_count += 2
+            conversation.last_message_at = assistant_message.created_at or utcnow()
+            preview = assistant_message.content.strip() or user_message.content.strip()
+            conversation.last_message_preview = preview[:200]
+            if not conversation.title and title:
+                conversation.title = title[:100]
+            self._touch(conversation)
+            session.add(conversation)
+            await session.flush()
+
+            await session.refresh(user_message)
+            await session.refresh(assistant_message)
+            await session.refresh(conversation)
+            return user_message, assistant_message, conversation

@@ -5,17 +5,19 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+import mimetypes
 import time
 from typing import Any
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from loguru import logger
 from starlette.websockets import WebSocketState
 
 from moribot import __version__
 from moribot.core.db import User
-from moribot.core.errors import MoriError
+from moribot.core.errors import MoriError, NotFoundError
 from moribot.core.event import EventType, MoriEvent
 from moribot.core.i18n import parse_accept_language, translate
 from moribot.core.platform.mobile_adapter import MobileConnection
@@ -33,12 +35,17 @@ from ..rate_limit import LoginRateLimiter
 from ..responses import ApiResponse, ok
 from ..schemas import (
     MobileCharacterOut,
-    MobileChatOut,
-    MobileChatRequest,
+    MobileConversationCreate,
+    MobileConversationOut,
+    MobileConversationPageOut,
+    MobileConversationUpdate,
     MobileDeviceOut,
+    MobileMessagePageOut,
     MobilePairOut,
     MobilePairRequest,
     MobileSelfOut,
+    MobileSendMessageOut,
+    MobileSendMessageRequest,
     MobileSendRequest,
     PairingCodeOut,
     UserOut,
@@ -210,24 +217,166 @@ async def mobile_characters(
     return ok(await service.list_characters())
 
 
-@router.post("/app/chat", response_model=ApiResponse[MobileChatOut])
-async def mobile_chat(
-    payload: MobileChatRequest,
+@router.get("/app/conversations", response_model=ApiResponse[MobileConversationPageOut])
+async def mobile_conversations(
+    character_id: int | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    auth: MobileAuthContext = Depends(get_mobile_auth_context),
+    service: MobileChatService = Depends(get_mobile_chat_service),
+) -> dict:
+    """List the account's conversations, most recent first."""
+    return ok(
+        await service.list_conversations(
+            auth.user,
+            character_id=character_id,
+            limit=limit,
+            offset=offset,
+        )
+    )
+
+
+@router.post("/app/conversations", response_model=ApiResponse[MobileConversationOut])
+async def create_mobile_conversation(
+    payload: MobileConversationCreate,
     request: Request,
     auth: MobileAuthContext = Depends(get_mobile_auth_context),
     service: MobileChatService = Depends(get_mobile_chat_service),
 ) -> dict:
-    """Generate one assistant reply for a character and a conversation snapshot.
-
-    MoriBot does not persist conversations. The phone sends its local history
-    and replaces it after receiving the reply.
-    """
-    result = await service.generate(
+    """Create an empty conversation bound to a character."""
+    locale = get_locale(request)
+    conversation = await service.create_conversation(
+        auth.user,
+        auth.device,
         payload,
-        device=auth.device,
+        locale=locale,
+    )
+    return ok(conversation, message=translate("mobile.conversation_created", locale))
+
+
+@router.get(
+    "/app/conversations/{conversation_id}",
+    response_model=ApiResponse[MobileConversationOut],
+)
+async def get_mobile_conversation(
+    conversation_id: str,
+    request: Request,
+    auth: MobileAuthContext = Depends(get_mobile_auth_context),
+    service: MobileChatService = Depends(get_mobile_chat_service),
+) -> dict:
+    """Return one conversation owned by the authenticated account."""
+    return ok(
+        await service.get_conversation(
+            auth.user,
+            conversation_id,
+            locale=get_locale(request),
+        )
+    )
+
+
+@router.patch(
+    "/app/conversations/{conversation_id}",
+    response_model=ApiResponse[MobileConversationOut],
+)
+async def update_mobile_conversation(
+    conversation_id: str,
+    payload: MobileConversationUpdate,
+    request: Request,
+    auth: MobileAuthContext = Depends(get_mobile_auth_context),
+    service: MobileChatService = Depends(get_mobile_chat_service),
+) -> dict:
+    """Rename a conversation."""
+    locale = get_locale(request)
+    conversation = await service.update_conversation(
+        auth.user,
+        conversation_id,
+        payload,
+        locale=locale,
+    )
+    return ok(conversation, message=translate("mobile.conversation_updated", locale))
+
+
+@router.delete(
+    "/app/conversations/{conversation_id}",
+    response_model=ApiResponse[dict],
+)
+async def delete_mobile_conversation(
+    conversation_id: str,
+    request: Request,
+    auth: MobileAuthContext = Depends(get_mobile_auth_context),
+    service: MobileChatService = Depends(get_mobile_chat_service),
+) -> dict:
+    """Delete a conversation, its messages and generated media."""
+    locale = get_locale(request)
+    await service.delete_conversation(auth.user, conversation_id, locale=locale)
+    return ok({}, message=translate("mobile.conversation_deleted", locale))
+
+
+@router.get(
+    "/app/conversations/{conversation_id}/messages",
+    response_model=ApiResponse[MobileMessagePageOut],
+)
+async def list_mobile_messages(
+    conversation_id: str,
+    request: Request,
+    limit: int = Query(default=50, ge=1, le=100),
+    before_id: int | None = Query(default=None, ge=1),
+    after_id: int | None = Query(default=None, ge=1),
+    auth: MobileAuthContext = Depends(get_mobile_auth_context),
+    service: MobileChatService = Depends(get_mobile_chat_service),
+) -> dict:
+    """Read persisted history for cache warm-up and incremental sync."""
+    return ok(
+        await service.list_messages(
+            auth.user,
+            conversation_id,
+            limit=limit,
+            before_id=before_id,
+            after_id=after_id,
+            locale=get_locale(request),
+        )
+    )
+
+
+@router.post(
+    "/app/conversations/{conversation_id}/messages",
+    response_model=ApiResponse[MobileSendMessageOut],
+)
+async def send_mobile_message(
+    conversation_id: str,
+    payload: MobileSendMessageRequest,
+    request: Request,
+    auth: MobileAuthContext = Depends(get_mobile_auth_context),
+    service: MobileChatService = Depends(get_mobile_chat_service),
+) -> dict:
+    """Persist a user message and return the generated assistant reply."""
+    result = await service.send_message(
+        auth.user,
+        auth.device,
+        conversation_id,
+        payload,
         locale=get_locale(request),
     )
     return ok(result)
+
+
+@router.get("/app/media/{filename}")
+async def mobile_media(
+    filename: str,
+    request: Request,
+    auth: MobileAuthContext = Depends(get_mobile_auth_context),
+    service: MobileChatService = Depends(get_mobile_chat_service),
+) -> FileResponse:
+    """Serve generated audio/images to their owning account only."""
+    path = service.media_path(auth.user, filename)
+    if path is None:
+        raise NotFoundError(translate("mobile.media_not_found", get_locale(request)))
+    media_type, _ = mimetypes.guess_type(path.name)
+    return FileResponse(
+        path,
+        media_type=media_type or "application/octet-stream",
+        headers={"Cache-Control": "private, max-age=86400"},
+    )
 
 
 @router.websocket("/ws")

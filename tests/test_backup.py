@@ -29,6 +29,9 @@ async def _prepare_source(tmp_path):
     plugin_dir = paths.plugin_dir / "echo"
     plugin_dir.mkdir(parents=True)
     (plugin_dir / "plugin.py").write_text("# test plugin\n", encoding="utf-8")
+    media_dir = paths.media_dir / "1"
+    media_dir.mkdir(parents=True)
+    (media_dir / "sample.png").write_bytes(b"fake-png")
     (paths.log_dir / "moribot.log").write_text("excluded log\n", encoding="utf-8")
     return paths, config, credentials
 
@@ -40,7 +43,7 @@ async def test_backup_roundtrip_restores_every_runtime_file(tmp_path):
     info = await BackupService(source).export_to(archive)
     assert info.path == archive
     assert info.includes_database is True
-    assert info.file_count >= 3
+    assert info.file_count >= 4
 
     with zipfile.ZipFile(archive) as zf:
         names = set(zf.namelist())
@@ -48,6 +51,7 @@ async def test_backup_roundtrip_restores_every_runtime_file(tmp_path):
         assert "config.json" in names
         assert "moribot.db" in names
         assert "plugins/echo/plugin.py" in names
+        assert "media/1/sample.png" in names
         assert "logs/moribot.log" not in names
         assert "initial_admin.txt" not in names
 
@@ -76,6 +80,7 @@ async def test_backup_roundtrip_restores_every_runtime_file(tmp_path):
     assert (target.plugin_dir / "echo" / "plugin.py").read_text(
         encoding="utf-8"
     ) == "# test plugin\n"
+    assert (target.media_dir / "1" / "sample.png").read_bytes() == b"fake-png"
     assert not (target.log_dir / "moribot.log").exists()
 
 

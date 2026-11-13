@@ -12,7 +12,17 @@ from sqlalchemy import event, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 
-from .models import CharacterCard, MobileDevice, MobilePairingCode, ModelProvider, User, utcnow
+from .models import (
+    CharacterCard,
+    Conversation,
+    ConversationMessage,
+    MobileDevice,
+    MobilePairingCode,
+    ModelProvider,
+    TimestampMixin,
+    User,
+    utcnow,
+)
 
 
 class BaseDatabase(abc.ABC):
@@ -235,6 +245,69 @@ class BaseDatabase(abc.ABC):
     async def clear_character_provider_refs(self, provider_id: int) -> None:
         raise NotImplementedError
 
+    # -- Conversations ----------------------------------------------------
+
+    @abc.abstractmethod
+    async def create_conversation(self, values: dict[str, Any]) -> Conversation:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_conversation(self, conversation_id: str) -> Conversation | None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def list_conversations(
+        self,
+        user_id: int,
+        *,
+        character_id: int | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[Conversation]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def update_conversation(
+        self,
+        conversation_id: str,
+        values: dict[str, Any],
+    ) -> Conversation | None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def delete_conversation(self, conversation_id: str) -> bool:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def list_conversation_messages(
+        self,
+        conversation_id: str,
+        *,
+        limit: int = 50,
+        before_id: int | None = None,
+        after_id: int | None = None,
+    ) -> tuple[list[ConversationMessage], bool]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def list_conversation_messages_by_client_id(
+        self,
+        conversation_id: str,
+        client_message_id: str,
+    ) -> list[ConversationMessage]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def append_conversation_exchange(
+        self,
+        conversation_id: str,
+        *,
+        user_values: dict[str, Any],
+        assistant_values: dict[str, Any],
+        title: str = "",
+    ) -> tuple[ConversationMessage, ConversationMessage, Conversation] | None:
+        raise NotImplementedError
+
     async def _count_users(self) -> int:
         """Shared count implementation for subclasses."""
         async with self.session() as session:
@@ -248,5 +321,5 @@ class BaseDatabase(abc.ABC):
             return result.scalar_one_or_none()
 
     @staticmethod
-    def _touch(user: User) -> None:
-        user.updated_at = utcnow()
+    def _touch(record: TimestampMixin) -> None:
+        record.updated_at = utcnow()

@@ -155,51 +155,76 @@ class MobileCharacterOut(BaseModel):
     updated_at: datetime
 
 
-class MobileChatMessageIn(BaseModel):
-    role: Literal["user", "assistant"]
-    content: str = Field(min_length=1, max_length=8000)
-
-
-class MobileChatRequest(BaseModel):
-    """One conversation turn.
-
-    The phone owns the history and sends the full context on every request.
-    ``client_message_id`` is echoed back so the client can match the reply to
-    the local message that triggered it.
-    """
-
+class MobileConversationCreate(BaseModel):
     character_id: int
-    messages: list[MobileChatMessageIn] = Field(min_length=1, max_length=200)
-    client_message_id: str = Field(default="", max_length=128)
-    speech: bool = False
+    title: str = Field(default="", max_length=100)
 
 
-class MobileChatModelOut(BaseModel):
-    provider_id: str
-    model: str
+class MobileConversationUpdate(BaseModel):
+    title: str = Field(min_length=1, max_length=100)
+
+
+class MobileConversationOut(BaseModel):
+    id: str
+    character_id: int
+    character_name: str = ""
+    character_avatar: str = ""
+    character_available: bool = True
+    title: str = ""
+    last_message_preview: str = ""
+    last_message_at: datetime | None = None
+    message_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class MobileConversationPageOut(BaseModel):
+    conversations: list[MobileConversationOut] = Field(default_factory=list)
+    has_more: bool = False
 
 
 class MobileSpeechOut(BaseModel):
+    url: str
     mime_type: str = "audio/mpeg"
     format: str = "mp3"
-    data_url: str
     byte_length: int = 0
 
 
 class MobileImageOut(BaseModel):
+    url: str
     mime_type: str = "image/png"
-    data_url: str | None = None
-    url: str | None = None
 
 
-class MobileChatOut(BaseModel):
-    client_message_id: str
-    character_id: int
-    text: str = ""
+class MobileMessageOut(BaseModel):
+    id: int
+    conversation_id: str
+    role: Literal["user", "assistant"]
+    content: str = ""
     speech: MobileSpeechOut | None = None
     images: list[MobileImageOut] = Field(default_factory=list)
-    chat_model: MobileChatModelOut
+    client_message_id: str = ""
+    provider_id: str = ""
+    model: str = ""
     created_at: datetime
+
+
+class MobileMessagePageOut(BaseModel):
+    messages: list[MobileMessageOut] = Field(default_factory=list)
+    has_more: bool = False
+    earliest_id: int | None = None
+    latest_id: int | None = None
+
+
+class MobileSendMessageRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=8000)
+    client_message_id: str = Field(default="", max_length=128)
+    speech: bool = False
+
+
+class MobileSendMessageOut(BaseModel):
+    conversation: MobileConversationOut
+    user_message: MobileMessageOut
+    assistant_message: MobileMessageOut
 
 
 ProviderCategoryLiteral = Literal["chat", "speech", "image"]

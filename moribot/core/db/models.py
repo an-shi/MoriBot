@@ -1,7 +1,9 @@
 """Database tables.
 
-Only the dashboard account table exists in the foundation. Conversation,
-provider and platform tables will be added as those modules are built.
+Runtime data lives in a single SQLite database so the whole data directory can
+be exported and restored as one unit. Conversation messages are stored here;
+generated audio and images are stored under the data directory as files and
+referenced from the message records.
 """
 
 from __future__ import annotations
@@ -121,3 +123,53 @@ class CharacterCard(TimestampMixin, SQLModel, table=True):
     speech_provider_id: int | None = Field(default=None, index=True)
     image_provider_id: int | None = Field(default=None, index=True)
     enabled: bool = Field(default=True, nullable=False)
+
+
+class Conversation(TimestampMixin, SQLModel, table=True):
+    """A persistent chat thread owned by an account.
+
+    Conversations belong to the account rather than a single device, so all
+    paired devices of the same user can read the same history. Character name
+    is snapshotted so history stays readable after a card is renamed or
+    deleted.
+    """
+
+    __tablename__ = "conversations"
+
+    id: str = Field(
+        default_factory=lambda: uuid.uuid4().hex,
+        primary_key=True,
+        max_length=32,
+    )
+    user_id: int = Field(index=True, nullable=False)
+    character_id: int = Field(index=True, nullable=False)
+    device_id: str = Field(default="", max_length=64, index=True)
+    character_name: str = Field(default="", max_length=64)
+    character_avatar: str = Field(default="", max_length=512)
+    title: str = Field(default="", max_length=100)
+    last_message_preview: str = Field(default="", max_length=200)
+    last_message_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=False),
+    )
+    message_count: int = Field(default=0, nullable=False)
+
+
+class ConversationMessage(TimestampMixin, SQLModel, table=True):
+    """One persisted user or assistant message.
+
+    ``media`` is a JSON list of generated media descriptors. Audio and image
+    bytes live under ``data/media/<user_id>/`` and the descriptors store the
+    authenticated API URL instead of embedding base64 in the database.
+    """
+
+    __tablename__ = "conversation_messages"
+
+    id: int | None = Field(default=None, primary_key=True)
+    conversation_id: str = Field(index=True, max_length=32, nullable=False)
+    role: str = Field(max_length=16, nullable=False)
+    content: str = Field(default="", nullable=False)
+    client_message_id: str = Field(default="", max_length=128, index=True)
+    provider_id: str = Field(default="", max_length=64)
+    model: str = Field(default="", max_length=128)
+    media: list = Field(default_factory=list, sa_type=JSON)
