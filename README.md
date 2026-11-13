@@ -12,7 +12,7 @@ MoriBot 的产品目标不是做多平台聊天机器人网关，**不计划接�
 - 内建 MoriMobile 安全网关：设备配对、设备令牌、WebSocket 上下行、设备撤销
 - MoriMobile 业务接口走 HTTPS JSON API，实时聊天走加密 WSS
 - 三类模型配置：主模型 / 语音模型 / 图片模型
-- 角色卡：名称、头像、人物设定、开场白，并可为每个角色单独覆盖三类模型
+- 角色卡：名称、头像、人物设定，并可为每个角色单独覆盖三类模型
 - 兼容主流供应商：OpenAI、DeepSeek、通义千问、Kimi、智谱 GLM、豆包、SiliconFlow、OpenRouter、Groq、Mistral、xAI、Ollama 等 OpenAI 兼容端点
 - 原生适配 Anthropic Claude、Google Gemini、Azure OpenAI、ElevenLabs、MiniMax
 - 主模型通过工具调用语音与图片模型，在对话中生成语音和图片
@@ -162,7 +162,7 @@ MoriMobile 官方仓库：[an-shi/MoriAI-mobile](https://github.com/an-shi/MoriA
 
 #### 角色卡
 
-左侧「角色卡」可创建角色，设置名称、头像、简介、人物设定和开场白。三类模型都可以选择「跟随系统默认」，或单独指定某个已配置的模型；未覆盖时使用该类别当前默认模型。头像支持上传本地图片或填写 URL，随数据备份迁移。详见 [docs/characters.md](docs/characters.md)。
+左侧「角色卡」可创建角色，设置名称、头像、简介和人物设定。三类模型都可以选择「跟随系统默认」，或单独指定某个已配置的模型；未覆盖时使用该类别当前默认模型。头像只能通过上传本地图片设置，文件保存在 `data/avatars` 并生成可供 MoriMobile 使用的 URL，随数据备份迁移。详见 [docs/characters.md](docs/characters.md)。
 
 ### 6. 数据迁移
 

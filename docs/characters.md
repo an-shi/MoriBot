@@ -7,10 +7,9 @@
 | 字段 | 说明 |
 | --- | --- |
 | `name` | 角色名称，全局唯一 |
-| `avatar` | 头像地址（`/avatars/...` 或外部图片 URL） |
+| `avatar` | 头像 URL；由上传接口生成并随角色卡保存 |
 | `description` | 角色简介 |
-| `persona` | 人物设定，描述性格、背景、说话方式、行为准则等 |
-| `greeting` | 开场白 |
+| `persona` | 人物设定，描述性格、背景、说话方式、行为准则等，可写一大段文本 |
 | `chat_provider_id` | 对话主模型覆盖；`null` 表示跟随系统默认 |
 | `speech_provider_id` | 语音模型覆盖；`null` 表示跟随系统默认 |
 | `image_provider_id` | 图片模型覆盖；`null` 表示跟随系统默认 |
@@ -33,12 +32,14 @@
 
 ## 3. 头像
 
-头像支持两种写法：
+头像只能通过管理页上传：
 
-- 直接填写外部图片 URL。
-- 在管理页上传本地图片。
-
-上传接口接收 base64 data URL，限制为 PNG / JPEG / WebP / GIF，最大 2 MB。文件保存在数据目录的 `avatars/` 下，并通过 `/avatars/<filename>` 提供访问；随数据备份一起迁移。
+- 鼠标悬浮在头像框上，会显示「上传」和「预览」两个按钮。
+- 支持 PNG / JPEG / WebP / GIF，最大 2 MB。
+- 上传后文件保存在数据目录的 `avatars/` 下，并生成 `/avatars/<filename>` URL 随角色卡一起保存。
+- 该 URL 可直接提供给 MoriMobile 显示头像。
+- 头像随数据备份一起迁移。
+- 更新头像或删除角色时会清理旧本地头像。
 
 ## 4. API
 
@@ -61,10 +62,9 @@ curl -X POST http://127.0.0.1:6186/api/v1/characters \
   -H "Content-Type: application/json" \
   -d '{
     "name": "小森",
-    "avatar": "",
+    "avatar": "/avatars/2f8c....png",
     "description": "森林里的向导",
-    "persona": "温柔、耐心，喜欢自然。",
-    "greeting": "你好，我是小森。",
+    "persona": "温柔、耐心，喜欢自然。你说话缓慢而清楚，会先倾听再回答。",
     "chat_provider_id": null,
     "speech_provider_id": 3,
     "image_provider_id": null,
