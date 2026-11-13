@@ -17,6 +17,7 @@ MoriBot 的产品目标不是做多平台聊天机器人网关，**不计划接�
 - 原生适配 Anthropic Claude、Google Gemini、Azure OpenAI、ElevenLabs、MiniMax
 - 主模型通过工具调用语音与图片模型，在对话中生成语音和图片
 - 每日模型可用性定时检测，首页显示各模型最近状态
+- 系统日志：运行日志与普通业务接口调用记录
 - SQLite 数据库与管理员账户
 - JWT 登录、密码哈希、登录限流、反向代理/TLS 支持
 - 一键数据导出 / 导入，运行数据可整体迁移
@@ -70,6 +71,7 @@ MoriBot/
 │   ├── src/views/HomePage.vue
 │   ├── src/views/ProvidersPage.vue
 │   ├── src/views/CharactersPage.vue
+│   ├── src/views/LogsPage.vue
 │   ├── src/components/MobilePairingDialog.vue
 │   ├── src/components/ProviderDialog.vue
 │   ├── src/components/CharacterDialog.vue
@@ -79,6 +81,7 @@ MoriBot/
 │   ├── architecture.md
 │   ├── models.md               # 三类模型配置与工具调用
 │   ├── characters.md           # 角色卡与模型覆盖
+│   ├── logs.md                 # 系统日志与接口记录
 │   ├── deployment.md           # 公网部署与网络安全
 │   ├── morimobile.md           # 手机端配对与 WebSocket 协议
 │   └── data-migration.md       # 数据迁移与备份
@@ -279,6 +282,8 @@ uv run main.py --host 127.0.0.1 --port 8080 --data-dir ./my-data
 | GET | `/api/v1/system/settings` | 是 | 读取系统设置（模型定时检测） |
 | PATCH | `/api/v1/system/settings` | 是 | 保存模型定时检测开关与时间 |
 | POST | `/api/v1/system/model-health/run` | 是 | 立即检测所有已启用模型 |
+| GET | `/api/v1/system/logs` | 是 | 查询最近运行日志与接口调用 |
+| GET | `/api/v1/system/logs/download` | 是 | 下载运行日志文件 |
 | GET | `/api/v1/system/backup/export` | 是 | 下载完整数据备份 |
 | GET | `/api/v1/providers` | 是 | 列出三类模型配置 |
 | GET | `/api/v1/providers/catalog` | 是 | 获取支持的适配器与供应商预设 |
