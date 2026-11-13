@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from urllib.parse import urlparse
 
@@ -46,6 +47,7 @@ class ProviderConfigService:
         self.db = core.db
         self.secret_box = core.secret_box
         self.manager: ProviderManager = core.provider_manager
+        self._health_lock = asyncio.Lock()
 
     @staticmethod
     def catalog() -> ProviderCatalogOut:
@@ -353,6 +355,20 @@ class ProviderConfigService:
             latency_ms=latency,
             preview=preview,
         )
+
+    async def run_health_checks(
+        self,
+        *,
+        locale: str = DEFAULT_LOCALE,
+    ) -> list[ProviderTestResult]:
+        """Test every enabled provider once and persist the result."""
+        async with self._health_lock:
+            results: list[ProviderTestResult] = []
+            for record in await self.db.list_model_providers():
+                if record.id is None or not record.enabled:
+                    continue
+                results.append(await self.test_provider(record.id, locale=locale))
+            return results
 
     @staticmethod
     def _validate_category(category: str, locale: str) -> str:

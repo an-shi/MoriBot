@@ -55,6 +55,33 @@ class SystemInfo(BaseModel):
     python_version: str = ""
 
 
+class HealthCheckSettings(BaseModel):
+    enabled: bool = True
+    times: list[str] = Field(default_factory=list)
+    last_runs: dict[str, str] = Field(default_factory=dict)
+
+
+class SystemSettingsOut(BaseModel):
+    health_check: HealthCheckSettings
+    server_time: str = ""
+    timezone: str = ""
+
+
+class HealthCheckSettingsUpdate(BaseModel):
+    enabled: bool
+    times: list[str] = Field(default_factory=list)
+
+
+class SystemSettingsUpdate(BaseModel):
+    health_check: HealthCheckSettingsUpdate
+
+
+class ModelHealthRunOut(BaseModel):
+    checked: int = 0
+    available: int = 0
+    failed: int = 0
+
+
 class HealthInfo(BaseModel):
     status: str = "ok"
     version: str

@@ -33,6 +33,7 @@ from .responses import error
 from .routes import API_V1_PREFIX, api_router
 from .services.auth_service import AuthService
 from .services.mobile_service import MobileService
+from .services.model_health import ModelHealthScheduler
 from .services.provider_service import ProviderConfigService
 
 
@@ -116,12 +117,14 @@ def create_app(
         lifecycle.mobile_adapter,
     )
     provider_service = ProviderConfigService(lifecycle)
+    health_scheduler = ModelHealthScheduler(resolved_config, provider_service)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         try:
             await lifecycle.initialize()
             await lifecycle.start()
+            await health_scheduler.start()
             logger.info(
                 "{} v{} dashboard API ready at {}",
                 resolved_config.bot_name,
@@ -130,6 +133,7 @@ def create_app(
             )
             yield
         finally:
+            await health_scheduler.stop()
             await lifecycle.stop()
 
     app = FastAPI(
@@ -149,6 +153,7 @@ def create_app(
     app.state.auth_service = auth_service
     app.state.mobile_service = mobile_service
     app.state.provider_service = provider_service
+    app.state.model_health_scheduler = health_scheduler
     app.state.login_limiter = LoginRateLimiter()
     app.state.mobile_limiter = LoginRateLimiter()
     app.state.log_broker = broker

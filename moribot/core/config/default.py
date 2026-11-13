@@ -59,6 +59,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "retired_model_prefixes": {
             "minimax": ["minimax-m2"],
         },
+        # Daily availability checks. Times use the server's local timezone.
+        "health_check": {
+            "enabled": False,
+            "times": ["09:00"],
+            "last_runs": {},
+        },
     },
     "platform": {},
     "mobile": {

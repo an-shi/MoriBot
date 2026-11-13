@@ -113,6 +113,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "provider.models_failed": "获取模型列表失败: {detail}",
         "provider.models_auth_failed": "获取模型列表失败：认证未通过。请检查 API Key 是否正确，并确认密钥区域与 Base URL 匹配（MiniMax 国际使用 api.minimax.io，国内使用 api.minimax.cn）。详情: {detail}",
         "provider.models_empty": "供应商未返回可用模型，可手动输入模型名称",
+        "settings.times_required": "启用定时检测时，请至少设置一个检测时间",
+        "settings.invalid_time": "检测时间格式无效: {value}",
+        "settings.too_many_times": "最多设置 12 个检测时间",
+        "settings.saved": "系统设置已保存",
     },
     "en-US": {
         "common.unauthorized": "Authentication required",
@@ -203,6 +207,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "provider.models_failed": "Failed to fetch model list: {detail}",
         "provider.models_auth_failed": "Failed to fetch model list: authentication failed. Check the API key and make sure its region matches the Base URL (MiniMax global: api.minimax.io, China: api.minimax.cn). Details: {detail}",
         "provider.models_empty": "No models returned; enter a model name manually",
+        "settings.times_required": "Add at least one check time when scheduled checks are enabled",
+        "settings.invalid_time": "Invalid check time: {value}",
+        "settings.too_many_times": "You can add at most 12 check times",
+        "settings.saved": "System settings saved",
     },
 }
 
