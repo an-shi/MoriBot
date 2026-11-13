@@ -220,7 +220,28 @@ curl -X POST http://127.0.0.1:6186/api/v1/providers \
 
 由于模型配置在数据库中，备份/迁移会自动携带，不需要额外操作。API Key 能否解密取决于 `config.json` 中的 JWT 密钥是否一起迁移；迁移时请完整导入备份。旧版本数据库启动时会自动执行 `ALTER TABLE model_providers ADD COLUMN capabilities` 补齐字段，已有配置仍然可用。
 
-## 6. 当前限制
+## 6. 定时可用性检测
+
+在「系统设置」中可以开启每日模型可用性检测，并添加多个检测时间。也可以直接编辑 `config.json`：
+
+```json
+"provider": {
+  "health_check": {
+    "enabled": true,
+    "times": ["09:00", "21:00"],
+    "last_runs": {}
+  }
+}
+```
+
+- 使用服务器本地时间，`times` 支持多个 `HH:MM`。
+- 每个时间点每天最多执行一次，`last_runs` 记录已执行的日期，重启不会重复执行。
+- 检测会依次调用所有已启用模型的「测试连接」：主模型发送 `Hi`，语音合成 `Hi.`，图片生成 1 张。
+- 结果写回 `model_providers.last_test_*`，首页「模型可用性」会显示可用、异常或未检测状态。
+- 系统设置页提供「立即检测」，不依赖定时开关。
+- 自动检测会发起真实请求，可能产生少量费用；关闭开关即可停止。
+
+## 7. 当前限制
 
 - 原生适配器当前覆盖 Anthropic、Gemini、Azure OpenAI、ElevenLabs、MiniMax；其余厂商通过 OpenAI 兼容端点接入。
 - MiniMax 语音使用原生 `POST /v1/t2a_v2` 接口（返回 hex 音频），图片使用 H3 的 `/v1/images/generations`；国际账号使用 `api.minimax.io`，国内账号使用 `api.minimax.cn`，两者的 API Key 不能混用。国内语音如要求 `GroupId`，可在配置的 `options.group_id` 中补充。

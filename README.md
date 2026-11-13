@@ -15,11 +15,12 @@ MoriBot 的产品目标不是做多平台聊天机器人网关，**不计划接�
 - 兼容主流供应商：OpenAI、DeepSeek、通义千问、Kimi、智谱 GLM、豆包、SiliconFlow、OpenRouter、Groq、Mistral、xAI、Ollama 等 OpenAI 兼容端点
 - 原生适配 Anthropic Claude、Google Gemini、Azure OpenAI、ElevenLabs、MiniMax
 - 主模型通过工具调用语音与图片模型，在对话中生成语音和图片
+- 每日模型可用性定时检测，首页显示各模型最近状态
 - SQLite 数据库与管理员账户
 - JWT 登录、密码哈希、登录限流、反向代理/TLS 支持
 - 一键数据导出 / 导入，运行数据可整体迁移
 - 中文 / English 国际化，默认中文
-- 登录页面与空白工作台首页（Vue 3 + Vuetify 3）
+- 登录页面与控制台首页（运行概览、模型可用性）
 
 ## 技术栈
 
@@ -207,6 +208,11 @@ uv run main.py
     },
     "retired_model_prefixes": {
       "minimax": ["minimax-m2"]
+    },
+    "health_check": {
+      "enabled": false,
+      "times": ["09:00"],
+      "last_runs": {}
     }
   },
   "platform": {},
@@ -218,6 +224,8 @@ uv run main.py
 ```
 
 `provider.media_model_fallbacks` 用于 MiniMax 这类 `/models` 不返回语音/图片模型的供应商；`provider.retired_model_prefixes` 用于隐藏接口仍返回但已下线的模型。后续模型更新时直接修改这两个配置并重启即可，不需要改代码。
+
+`provider.health_check` 控制系统设置页的模型定时检测。`times` 支持多个 `HH:MM`，使用服务器本地时间；检测结果会写回模型配置并显示在首页。
 
 常用环境变量（可放在项目根目录的 `.env`）：
 
@@ -260,6 +268,9 @@ uv run main.py --host 127.0.0.1 --port 8080 --data-dir ./my-data
 | POST | `/api/v1/auth/change-password` | 是 | 修改密码并刷新令牌 |
 | POST | `/api/v1/auth/logout` | 是 | 登出确认（客户端丢弃令牌） |
 | GET | `/api/v1/system/info` | 是 | 首页运行状态 |
+| GET | `/api/v1/system/settings` | 是 | 读取系统设置（模型定时检测） |
+| PATCH | `/api/v1/system/settings` | 是 | 保存模型定时检测开关与时间 |
+| POST | `/api/v1/system/model-health/run` | 是 | 立即检测所有已启用模型 |
 | GET | `/api/v1/system/backup/export` | 是 | 下载完整数据备份 |
 | GET | `/api/v1/providers` | 是 | 列出三类模型配置 |
 | GET | `/api/v1/providers/catalog` | 是 | 获取支持的适配器与供应商预设 |
