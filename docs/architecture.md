@@ -117,10 +117,10 @@ MoriBot 有意区分后台用户与手机设备：
 | 调用方 | 认证方式 | 依赖 | 典型接口 |
 | --- | --- | --- | --- |
 | Web 控制台 | 管理员 JWT | `get_current_user` | 登录、系统信息、生成配对码、设备管理、数据导出 |
-| MoriMobile | 设备令牌 | `get_mobile_auth_context` | `/api/v1/mobile/app/*` 常规业务接口、WSS |
+| MoriMobile | 设备令牌 | `get_mobile_auth_context` | `/api/v1/mobile/app/*` 角色卡、对话生成等业务接口、WSS |
 | 未配对手机 | 一次性配对码 | 无（限流） | `POST /api/v1/mobile/pair` |
 
-`/api/v1/mobile/app/me` 是当前提供的设备 HTTP 认证示例，手机可以用它校验令牌并获取设备与账户信息。后续会话列表、历史记录、模型设置、文件上传等业务接口应统一放在 `/api/v1/mobile/app/*` 下，依赖 `MobileAuthContext`。后台 JWT 与设备令牌不能互相替代。
+`/api/v1/mobile/app/me` 用于校验设备令牌并获取设备与账户信息；`/api/v1/mobile/app/characters` 和 `/api/v1/mobile/app/chat` 分别提供角色卡列表与对话生成。后续模型设置、文件上传等业务接口统一放在 `/api/v1/mobile/app/*` 下，依赖 `MobileAuthContext`。后台 JWT 与设备令牌不能互相替代。
 
 ## 6. 消息事件流
 
@@ -139,6 +139,7 @@ MoriMobile App
 ```
 
 - 每个事件独立 task，默认最多 16 个并发（`EventBus(max_concurrency=16)`）。
+- 手机的正常对话由 `POST /api/v1/mobile/app/chat` 同步调用 `ModelGateway`，不经过事件总线；事件总线保留给 WSS 事件和后续实时推送。
 - `MoriEvent.stop()` 可以中止后续阶段。
 - 阶段返回异步生成器时使用洋葱模型：`yield` 前的代码先执行，`yield` 后的代码在后续阶段全部完成后执行。
 - 管道调度器在异步生成器分支结束后会直接返回，避免后续阶段被重复执行。
@@ -149,6 +150,7 @@ MoriMobile App
 - 配对码由已登录后台生成，10 分钟有效、单次使用、服务端只存哈希。
 - 手机用配对码换取高熵设备令牌，数据库只存 SHA-256。
 - 手机主动出站连接 WebSocket，家庭服务器不需要连接手机或暴露额外端口。
+- 角色卡和对话生成通过 HTTPS 设备令牌接口完成，不依赖 WebSocket 是否在线。
 - 设备可撤销，撤销会立即向 WebSocket 发送 `revoked` 并以 4001 关闭。
 - 浏览器 Origin 会校验；原生 App 可以不带 Origin，依靠设备令牌认证。
 - 详细协议见 [morimobile.md](morimobile.md)。
@@ -157,13 +159,13 @@ MoriMobile App
 
 ```text
 MoriMobile
-  ├─ HTTPS JSON API  ──►  /api/v1/mobile/app/*   会话、历史、设置、上传
+  ├─ HTTPS JSON API  ──►  /api/v1/mobile/app/*   角色卡、对话生成、设置、上传
   ├─ HTTPS 配对      ──►  /api/v1/mobile/pair     一次性设备令牌
-  └─ WSS             ──►  /api/v1/mobile/ws      实时聊天、流式回复、推送
+  └─ WSS             ──►  /api/v1/mobile/ws      服务端事件、推送、连接状态
 ```
 
-- **常规业务走 HTTPS**：CRUD、分页、文件上传下载、配置读取等使用普通 JSON 接口，便于缓存、重试、错误码和网关日志。
-- **WSS 只承载实时事件**：聊天消息、流式片段、ACK、心跳和服务端推送。
+- **常规业务走 HTTPS**：CRUD、分页、文件上传下载、配置读取、对话生成等使用普通 JSON 接口，便于缓存、重试、错误码和网关日志。
+- **WSS 只承载实时事件**：服务端推送、ACK、心跳和连接状态；对话请求不使用 WSS。
 - **不把 CRUD 塞进 WebSocket**：否则会失去 HTTP 的幂等、缓存、鉴权和可观测性。
 - **Service 层与传输无关**：`EventBus`、`Pipeline` 和业务 Service 不关心消息来自 WSS 还是一条 HTTP 请求；路由只负责协议转换。
 - **认证分离**：管理接口用后台 JWT，手机业务接口用 `get_mobile_auth_context` 设备令牌。
@@ -174,12 +176,13 @@ MoriMobile
 
 ```text
 主模型 chat.completions(tools=[generate_speech, generate_image])
-  ├─ tool_call generate_speech → 默认语音模型 → SpeechResult
-  ├─ tool_call generate_image  → 默认图片模型 → GeneratedImage[]
+  ├─ tool_call generate_speech → 角色指定或默认语音模型 → SpeechResult
+  ├─ tool_call generate_image  → 角色指定或默认图片模型 → GeneratedImage[]
   └─ 主模型收到 tool 结果 → 最终文本
 ```
 
-- 只有配置了对应默认模型，工具才会出现在主模型请求中。
+- 只有配置了对应语音/图片模型，工具才会出现在主模型请求中。
+- `ModelGateway` 支持传入角色卡的 `chat_provider_id` / `speech_provider_id` / `image_provider_id`；为空时回退该类别的系统默认模型。
 - 工具调用结果和媒体附件通过 `ModelReply` 返回给上层对话服务。
 - 模型配置中的 `capabilities` 记录输入/输出模态、工具与推理能力，来自供应商接口或名称推断，对话层据此决定是否接受图片、发送工具定义。
 - API Key 使用安装密钥派生的 Fernet 加密存储，数据库读取不会直接暴露明文。
@@ -196,7 +199,7 @@ MoriMobile
 4. 导入时校验路径安全、文件大小、哈希、配置 JSON 和 SQLite 完整性。
 5. 原子替换数据目录，并保留 `data.pre-import-*` 回滚点。
 
-未来新增的模型配置、聊天记录、模型记忆、上传文件只要落在数据目录，就会自动进入备份，无需修改迁移代码。详见 [data-migration.md](data-migration.md)。
+未来新增的模型配置、业务数据、模型记忆、上传文件只要落在数据目录，就会自动进入备份，无需修改迁移代码。详见 [data-migration.md](data-migration.md)。
 
 ## 7. 扩展点
 
@@ -212,8 +215,8 @@ from moribot.dashboard.deps import MobileAuthContext, get_mobile_auth_context
 router = APIRouter(prefix="/mobile/app", tags=["mobile-app"])
 
 
-@router.get("/conversations")
-async def list_conversations(
+@router.get("/characters")
+async def list_characters(
     auth: MobileAuthContext = Depends(get_mobile_auth_context),
 ):
     # auth.device 是当前设备，auth.user 是设备绑定的账户
@@ -227,11 +230,10 @@ async def list_conversations(
 实现 `Provider.chat()`，然后：
 
 ```python
-self.provider_manager.register(MyProvider("openai-1", model="gpt-4o-mini"))
-self.provider_manager.set_default("openai-1")
+self.provider_manager.register(MyProvider("openai-1", model="gpt-4o-mini"), default=True)
 ```
 
-`ProcessStage` 会从 `provider_manager.get_default()` 取默认提供方；后续可以按会话、人格或路由选择不同的 Provider。
+`ModelGateway` 可以通过 `chat_provider_id` / `speech_provider_id` / `image_provider_id` 使用角色卡指定的 Provider；未指定时回退该类别的默认提供方。`ProcessStage` 目前仍是占位实现，移动端对话由 `/api/v1/mobile/app/chat` 直接调用 `ModelGateway`。
 
 ### 7.3 新增管道阶段
 
@@ -303,9 +305,9 @@ class RateLimitStage(Stage):
 
 ## 11. 后续演进
 
-1. 会话表、消息表与统一会话 ID。
+1. 多轮上下文由 MoriMobile 本地维护，MoriBot 不新增会话表或消息表。
 2. 主模型流式输出、自动重试和多轮 Agent 工具调用。
-3. MoriMobile HTTP 业务 API（会话列表、历史记录、设置同步、文件上传）。
+3. MoriMobile HTTP 业务 API（设置同步、文件上传、多端同步）。
 4. 插件管理 API 与热重载。
 5. SSE 实时日志（复用 `LogBroker`）。
 6. 前端登录后的账户安全页与系统设置页。

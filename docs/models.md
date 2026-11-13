@@ -118,7 +118,7 @@ OpenRouter、Gemini 等会返回 `architecture`、`inputTokenLimit` 等元数据
 
 ## 3. 主模型如何调用语音和图片
 
-`ModelGateway` 把已配置的语音、图片默认模型暴露为主模型的工具：
+`ModelGateway` 把可用的语音、图片模型暴露为主模型的工具。角色卡可以指定模型，未指定时使用系统默认模型：
 
 ```text
 用户消息
@@ -140,15 +140,22 @@ ModelReply(
 )
 ```
 
-实现：`moribot/core/provider/gateway.py`。后续对话服务只需要：
+实现：`moribot/core/provider/gateway.py`。对话服务可以传入角色卡的模型覆盖：
 
 ```python
-reply = await core.model_gateway.chat(messages)
+reply = await core.model_gateway.chat(
+    messages,
+    chat_provider_id=character.chat_provider_id,
+    speech_provider_id=character.speech_provider_id,
+    image_provider_id=character.image_provider_id,
+)
 ```
+
+传入的 ID 为 `None` 时回退到该类别的系统默认模型；显式指定但 Provider 不可用时，`ModelGateway` 抛出 `ProviderError`，不会静默换模型。
 
 然后把 `reply.text`、`reply.speech`、`reply.images` 分别映射为 MoriMobile 的文字、语音和图片消息。
 
-工具只在对应默认模型存在时才会出现在主模型的 tools 列表中；没有配置语音/图片模型时，主模型只做普通对话。
+工具只在对应语音/图片模型可用时才会出现在主模型的 tools 列表中；没有配置语音/图片模型时，主模型只做普通对话。
 
 ## 4. API
 

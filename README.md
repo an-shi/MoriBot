@@ -10,12 +10,13 @@ MoriBot 的产品目标不是做多平台聊天机器人网关，**不计划接�
 - 异步事件总线 + 洋葱模型消息管道
 - 以 [MoriMobile](https://github.com/an-shi/MoriMobile) 为唯一官方手机客户端
 - 内建 MoriMobile 安全网关：设备配对、设备令牌、WebSocket 上下行、设备撤销
-- MoriMobile 业务接口走 HTTPS JSON API，实时聊天走加密 WSS
+- MoriMobile 业务接口与角色对话走 HTTPS JSON API，服务端事件与推送走加密 WSS
 - 三类模型配置：主模型 / 语音模型 / 图片模型
 - 角色卡：名称、头像、人物设定，并可为每个角色单独覆盖三类模型
 - 兼容主流供应商：OpenAI、DeepSeek、通义千问、Kimi、智谱 GLM、豆包、SiliconFlow、OpenRouter、Groq、Mistral、xAI、Ollama 等 OpenAI 兼容端点
 - 原生适配 Anthropic Claude、Google Gemini、Azure OpenAI、ElevenLabs、MiniMax
 - 主模型通过工具调用语音与图片模型，在对话中生成语音和图片
+- MoriMobile 对话桥接：按角色卡调用模型，聊天历史由手机本地维护
 - 每日模型可用性定时检测，首页显示各模型最近状态
 - 系统日志：运行日志与普通业务接口调用记录
 - SQLite 数据库与管理员账户
@@ -83,7 +84,7 @@ MoriBot/
 │   ├── characters.md           # 角色卡与模型覆盖
 │   ├── logs.md                 # 系统日志与接口记录
 │   ├── deployment.md           # 公网部署与网络安全
-│   ├── morimobile.md           # 手机端配对与 WebSocket 协议
+│   ├── morimobile.md           # 手机端配对、对话 API 与 WebSocket 协议
 │   └── data-migration.md       # 数据迁移与备份
 └── tests/                      # 后端测试
 ```
@@ -141,7 +142,8 @@ MoriMobile 官方仓库：[an-shi/MoriMobile](https://github.com/an-shi/MoriMobi
 1. 登录后台，点击首页右上角「连接 MoriMobile」。
 2. 点击「生成配对码」，得到 8 位配对码和 `morimobile://` 配对链接。
 3. 在手机 MoriMobile 中输入配对码，手机会获得一次性下发的设备令牌。
-4. 手机通过 `WSS /api/v1/mobile/ws` 主动连接 MoriBot。
+4. 手机通过 `GET /api/v1/mobile/app/characters` 获取可用的角色卡。
+5. 对话时手机调用 `POST /api/v1/mobile/app/chat`，本地维护历史并显示回复；`WSS /api/v1/mobile/ws` 用于服务端事件、推送和连接状态。
 
 手机连接是**出站连接**，所以家庭服务器不需要知道手机 IP。公网部署、TLS、反向代理和隧道方案见 [docs/deployment.md](docs/deployment.md)，协议细节见 [docs/morimobile.md](docs/morimobile.md)。
 
@@ -161,7 +163,7 @@ MoriMobile 官方仓库：[an-shi/MoriMobile](https://github.com/an-shi/MoriMobi
 
 模型名称通过供应商官方接口动态获取：填好 Base URL 和 API Key 后，点击模型输入框右侧的刷新按钮即可下拉选择，不再依赖代码里的固定列表。获取时还会记录模型能力（图片识别、工具调用、推理、上下文窗口），保存后显示在配置卡片上，对话层据此决定是否发送图片或工具。主模型还提供「平衡 / 精确 / 创意」参数预设，手动修改后自动切换为自定义。
 
-主模型会通过 `generate_speech` 和 `generate_image` 两个工具调用默认语音/图片模型；实现位于 `moribot/core/provider/gateway.py`，后续对话服务直接消费 `ModelGateway.chat()` 即可。详细说明见 [docs/models.md](docs/models.md)。
+主模型会通过 `generate_speech` 和 `generate_image` 两个工具调用角色指定的语音/图片模型；未指定时使用系统默认模型。实现位于 `moribot/core/provider/gateway.py`，MoriMobile 对话接口直接消费 `ModelGateway.chat()`。详细说明见 [docs/models.md](docs/models.md)。
 
 #### 角色卡
 
@@ -302,10 +304,12 @@ uv run main.py --host 127.0.0.1 --port 8080 --data-dir ./my-data
 | POST | `/api/v1/mobile/pairing-code` | 是 | 生成一次性 MoriMobile 配对码 |
 | POST | `/api/v1/mobile/pair` | 否（配对码） | 手机兑换设备令牌 |
 | GET | `/api/v1/mobile/app/me` | 设备令牌 | 校验设备并返回设备/账户信息 |
+| GET | `/api/v1/mobile/app/characters` | 设备令牌 | 获取手机可用的角色卡 |
+| POST | `/api/v1/mobile/app/chat` | 设备令牌 | 根据角色卡与本地历史生成回复 |
 | GET | `/api/v1/mobile/devices` | 是 | 已配对设备 |
 | POST | `/api/v1/mobile/devices/{id}/message` | 是 | 从控制台向在线设备发送消息 |
 | POST | `/api/v1/mobile/devices/{id}/revoke` | 是 | 撤销设备并强制下线 |
-| WS | `/api/v1/mobile/ws` | 设备令牌 | MoriMobile 双向消息通道 |
+| WS | `/api/v1/mobile/ws` | 设备令牌 | 服务端事件、推送与连接状态 |
 
 受保护接口使用请求头：
 
@@ -321,8 +325,8 @@ MoriMobile 使用两条独立通道：
 
 | 通道 | 用途 | 认证 |
 | --- | --- | --- |
-| HTTPS JSON API | 配对、设备信息、后续的会话列表、历史记录、模型设置、文件上传等常规业务 | 设备令牌（`/mobile/app/*`）或后台 JWT（管理接口） |
-| WSS `/api/v1/mobile/ws` | 实时聊天、流式回复、服务端推送、心跳、ACK | 设备令牌 |
+| HTTPS JSON API | 配对、设备信息、角色卡、对话生成、模型设置、文件上传等常规业务 | 设备令牌（`/mobile/app/*`）或后台 JWT（管理接口） |
+| WSS `/api/v1/mobile/ws` | 服务端事件、推送、心跳、ACK | 设备令牌 |
 
 底层 `EventBus`、`Pipeline` 和业务 Service 不依赖传输方式。新增业务能力时优先加 HTTP 接口；只有需要实时推送或流式传输时才走 WSS，不要把 CRUD 请求塞进 WebSocket。
 
@@ -383,15 +387,15 @@ from moribot.dashboard.deps import MobileAuthContext, get_mobile_auth_context
 router = APIRouter(prefix="/mobile/app", tags=["mobile-app"])
 
 
-@router.get("/conversations")
-async def list_conversations(
+@router.get("/characters")
+async def list_characters(
     auth: MobileAuthContext = Depends(get_mobile_auth_context),
 ):
     # auth.device 是当前设备，auth.user 是设备绑定的账户
     ...
 ```
 
-后台管理接口继续使用 `get_current_user`（JWT），手机端业务接口使用 `get_mobile_auth_context`（设备令牌），两种认证不会混用。只有实时聊天、流式输出和推送才使用 WSS。
+后台管理接口继续使用 `get_current_user`（JWT），手机端业务接口使用 `get_mobile_auth_context`（设备令牌），两种认证不会混用。对话生成使用 `/mobile/app/chat` 这类 HTTP 接口；只有需要实时推送或流式传输时才使用 WSS。
 
 ### 编写插件
 
@@ -437,13 +441,13 @@ pnpm build
 已完成：
 
 - [x] MoriMobile 配对、设备令牌、WebSocket 网关、设备撤销
+- [x] MoriMobile 对话桥接：角色卡列表与模型回复生成
 - [x] 数据导出 / 导入与完整性校验
 - [x] 中英文 i18n（默认中文）
 - [x] 公网部署的 TLS / 反向代理 / 安全头基线
 
 后续：
 
-- [ ] 会话与消息历史
 - [ ] 主模型流式输出、重试与多轮 Agent 工具调用完善
 - [ ] MoriMobile 业务 API 与多端同步
 - [ ] 插件管理页与插件市场
