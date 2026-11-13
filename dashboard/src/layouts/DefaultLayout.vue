@@ -23,6 +23,12 @@ const navItems: NavItem[] = [
   { labelKey: 'nav.home', icon: 'mdi-view-dashboard-outline', to: '/', available: true },
   { labelKey: 'nav.chat', icon: 'mdi-message-text-outline', available: false },
   { labelKey: 'nav.providers', icon: 'mdi-brain', to: '/providers', available: true },
+  {
+    labelKey: 'nav.characters',
+    icon: 'mdi-account-box-multiple-outline',
+    to: '/characters',
+    available: true,
+  },
   { labelKey: 'nav.platforms', icon: 'mdi-cellphone-link', available: false },
   { labelKey: 'nav.plugins', icon: 'mdi-puzzle-outline', available: false },
   { labelKey: 'nav.logs', icon: 'mdi-text-box-outline', available: false },

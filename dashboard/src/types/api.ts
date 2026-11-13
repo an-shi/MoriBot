@@ -149,3 +149,36 @@ export interface ProviderCatalog {
   types: ProviderTypeInfo[]
   presets: ProviderPreset[]
 }
+
+export interface CharacterCard {
+  id: number
+  name: string
+  avatar: string
+  description: string
+  persona: string
+  greeting: string
+  chat_provider_id: number | null
+  speech_provider_id: number | null
+  image_provider_id: number | null
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CharacterPayload {
+  name: string
+  avatar: string
+  description: string
+  persona: string
+  greeting: string
+  chat_provider_id: number | null
+  speech_provider_id: number | null
+  image_provider_id: number | null
+  enabled: boolean
+}
+
+export type CharacterUpdatePayload = Partial<CharacterPayload>
+
+export interface CharacterAvatarResult {
+  url: string
+}

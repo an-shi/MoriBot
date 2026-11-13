@@ -31,6 +31,12 @@ const router = createRouter({
           meta: { titleKey: 'nav.providers', requiresAuth: true },
         },
         {
+          path: 'characters',
+          name: 'characters',
+          component: () => import('@/views/CharactersPage.vue'),
+          meta: { titleKey: 'characters.pageTitle', requiresAuth: true },
+        },
+        {
           path: 'settings',
           name: 'settings',
           component: () => import('@/views/SystemSettingsPage.vue'),
