@@ -56,6 +56,20 @@ export interface ModelHealthRunResult {
   failed: number
 }
 
+export interface SystemLogEntry {
+  time: number
+  level: string
+  source: string
+  message: string
+  module: string
+  line: number
+}
+
+export interface SystemLogsResult {
+  entries: SystemLogEntry[]
+  total: number
+}
+
 export interface PairingCode {
   code: string
   expires_at: string

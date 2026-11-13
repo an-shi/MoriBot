@@ -4,6 +4,7 @@ import type {
   ModelHealthRunResult,
   PublicInfo,
   SystemInfo,
+  SystemLogsResult,
   SystemSettings,
 } from '@/types/api'
 
@@ -58,6 +59,29 @@ export const systemApi = {
       { timeout: 300000 },
     )
     return response.data.data
+  },
+
+  async logs(params: {
+    level?: string
+    source?: string
+    q?: string
+    limit?: number
+  }): Promise<SystemLogsResult> {
+    const response = await http.get<ApiResponse<SystemLogsResult>>('/system/logs', {
+      params,
+    })
+    return response.data.data
+  },
+
+  async downloadLogs(): Promise<BackupDownload> {
+    const response = await http.get<Blob>('/system/logs/download', {
+      responseType: 'blob',
+      timeout: 60000,
+    })
+    return {
+      blob: response.data,
+      filename: parseFilename(response.headers['content-disposition'] as string | undefined),
+    }
   },
 
   async exportBackup(): Promise<BackupDownload> {
