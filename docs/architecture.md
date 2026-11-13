@@ -60,7 +60,7 @@
 | `moribot/core/i18n.py` | 后端中英文消息与语言协商 |
 | `moribot/core/logging.py` | Loguru 控制台/文件 Sink、内存日志 Broker |
 | `moribot/dashboard/app.py` | FastAPI 工厂、CORS、GZip、安全头、异常处理、SPA 托管 |
-| `moribot/dashboard/routes/` | `/api/v1/auth`、`/system`、`/mobile`、`/providers` |
+| `moribot/dashboard/routes/` | `/api/v1/auth`、`/system`、`/mobile`、`/providers`、`/characters` |
 | `dashboard/src/` | Vue 控制台，登录页、工作台、MoriMobile 配对弹窗 |
 
 ## 4. 启动生命周期
@@ -184,6 +184,7 @@ MoriMobile
 - 模型配置中的 `capabilities` 记录输入/输出模态、工具与推理能力，来自供应商接口或名称推断，对话层据此决定是否接受图片、发送工具定义。
 - API Key 使用安装密钥派生的 Fernet 加密存储，数据库读取不会直接暴露明文。
 - 模型配置保存在 `model_providers` 表，随数据库备份迁移；旧库启动时自动补 `capabilities` 列。
+- 角色卡保存在 `character_cards` 表，头像文件位于数据目录 `avatars/`，同样随备份迁移；角色卡可按类别覆盖模型，未覆盖时使用系统默认模型。
 - 系统设置可开启每日模型可用性检测，按多个本地时间自动执行测试连接；结果写入 `last_test_*`，首页展示各模型状态。
 
 ## 6.4 数据可迁移性

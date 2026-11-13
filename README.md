@@ -12,6 +12,7 @@ MoriBot 的产品目标不是做多平台聊天机器人网关，**不计划接�
 - 内建 MoriMobile 安全网关：设备配对、设备令牌、WebSocket 上下行、设备撤销
 - MoriMobile 业务接口走 HTTPS JSON API，实时聊天走加密 WSS
 - 三类模型配置：主模型 / 语音模型 / 图片模型
+- 角色卡：名称、头像、人物设定、开场白，并可为每个角色单独覆盖三类模型
 - 兼容主流供应商：OpenAI、DeepSeek、通义千问、Kimi、智谱 GLM、豆包、SiliconFlow、OpenRouter、Groq、Mistral、xAI、Ollama 等 OpenAI 兼容端点
 - 原生适配 Anthropic Claude、Google Gemini、Azure OpenAI、ElevenLabs、MiniMax
 - 主模型通过工具调用语音与图片模型，在对话中生成语音和图片
@@ -68,13 +69,16 @@ MoriBot/
 │   ├── src/views/auth/LoginPage.vue
 │   ├── src/views/HomePage.vue
 │   ├── src/views/ProvidersPage.vue
+│   ├── src/views/CharactersPage.vue
 │   ├── src/components/MobilePairingDialog.vue
 │   ├── src/components/ProviderDialog.vue
+│   ├── src/components/CharacterDialog.vue
 │   ├── src/layouts/DefaultLayout.vue
 │   └── ...
 ├── docs/
 │   ├── architecture.md
 │   ├── models.md               # 三类模型配置与工具调用
+│   ├── characters.md           # 角色卡与模型覆盖
 │   ├── deployment.md           # 公网部署与网络安全
 │   ├── morimobile.md           # 手机端配对与 WebSocket 协议
 │   └── data-migration.md       # 数据迁移与备份
@@ -155,6 +159,10 @@ MoriMobile 官方仓库：[an-shi/MoriAI-mobile](https://github.com/an-shi/MoriA
 模型名称通过供应商官方接口动态获取：填好 Base URL 和 API Key 后，点击模型输入框右侧的刷新按钮即可下拉选择，不再依赖代码里的固定列表。获取时还会记录模型能力（图片识别、工具调用、推理、上下文窗口），保存后显示在配置卡片上，对话层据此决定是否发送图片或工具。主模型还提供「平衡 / 精确 / 创意」参数预设，手动修改后自动切换为自定义。
 
 主模型会通过 `generate_speech` 和 `generate_image` 两个工具调用默认语音/图片模型；实现位于 `moribot/core/provider/gateway.py`，后续对话服务直接消费 `ModelGateway.chat()` 即可。详细说明见 [docs/models.md](docs/models.md)。
+
+#### 角色卡
+
+左侧「角色卡」可创建角色，设置名称、头像、简介、人物设定和开场白。三类模型都可以选择「跟随系统默认」，或单独指定某个已配置的模型；未覆盖时使用该类别当前默认模型。头像支持上传本地图片或填写 URL，随数据备份迁移。详见 [docs/characters.md](docs/characters.md)。
 
 ### 6. 数据迁移
 
@@ -280,6 +288,12 @@ uv run main.py --host 127.0.0.1 --port 8080 --data-dir ./my-data
 | DELETE | `/api/v1/providers/{id}` | 是 | 删除模型配置 |
 | POST | `/api/v1/providers/{id}/default` | 是 | 设置该类型默认模型 |
 | POST | `/api/v1/providers/{id}/test` | 是 | 发起一次真实连通性测试 |
+| GET | `/api/v1/characters` | 是 | 列出角色卡 |
+| POST | `/api/v1/characters/avatar` | 是 | 上传角色头像 |
+| POST | `/api/v1/characters` | 是 | 创建角色卡 |
+| GET | `/api/v1/characters/{id}` | 是 | 获取角色卡 |
+| PATCH | `/api/v1/characters/{id}` | 是 | 更新角色卡 |
+| DELETE | `/api/v1/characters/{id}` | 是 | 删除角色卡 |
 | POST | `/api/v1/mobile/pairing-code` | 是 | 生成一次性 MoriMobile 配对码 |
 | POST | `/api/v1/mobile/pair` | 否（配对码） | 手机兑换设备令牌 |
 | GET | `/api/v1/mobile/app/me` | 设备令牌 | 校验设备并返回设备/账户信息 |
