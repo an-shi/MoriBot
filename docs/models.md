@@ -153,7 +153,7 @@ reply = await core.model_gateway.chat(
 
 传入的 ID 为 `None` 时回退到该类别的系统默认模型；显式指定但 Provider 不可用时，`ModelGateway` 抛出 `ProviderError`，不会静默换模型。
 
-然后把 `reply.text`、`reply.speech`、`reply.images` 分别映射为 MoriMobile 的文字、语音和图片消息。
+MoriMobile 消息接口会把 `reply.text`、`reply.speech`、`reply.images` 写入 `conversation_messages`；语音和图片字节保存到 `data/media/<user_id>/`，消息中只记录受鉴权保护的 URL。这样历史记录和生成媒体都能随数据目录一起迁移。
 
 工具只在对应语音/图片模型可用时才会出现在主模型的 tools 列表中；没有配置语音/图片模型时，主模型只做普通对话。
 

@@ -142,15 +142,15 @@ uv run main.py \
 
 ## 5. MoriMobile 网络方向
 
-MoriBot 只与官方手机客户端 [MoriMobile](https://github.com/an-shi/MoriMobile) 配套，不计划接入 QQ、Telegram、Discord 等第三方 IM。手机端的角色卡与对话生成走 HTTPS JSON API，服务端事件和推送走 WSS：
+MoriBot 只与官方手机客户端 [MoriMobile](https://github.com/an-shi/MoriMobile) 配套，不计划接入 QQ、Telegram、Discord 等第三方 IM。手机端的角色卡、会话、消息、媒体下载走 HTTPS JSON API，服务端事件和推送走 WSS：
 
 ```text
-MoriMobile ── HTTPS JSON ──► MoriBot /api/v1/mobile/app/*   角色卡/对话/设置
+MoriMobile ── HTTPS JSON ──► MoriBot /api/v1/mobile/app/*   角色卡/会话/消息/媒体
 MoriMobile ── HTTPS 配对  ──► MoriBot /api/v1/mobile/pair    设备令牌
 MoriMobile ── 出站 WSS    ──► MoriBot /api/v1/mobile/ws      事件/推送
 ```
 
-反向代理需要同时正确转发普通 HTTPS 请求和 WebSocket Upgrade；只配置普通 `proxy_pass` 会导致 `/api/v1/mobile/ws` 无法建立。
+反向代理需要同时正确转发普通 HTTPS 请求和 WebSocket Upgrade；只配置普通 `proxy_pass` 会导致 `/api/v1/mobile/ws` 无法建立。媒体文件通过需要设备令牌的 `/api/v1/mobile/app/media/*` 下载，不要把带 `Authorization` 的响应配置成公共缓存。
 
 手机主动连接服务器，而不是服务器主动连接手机，因此：
 

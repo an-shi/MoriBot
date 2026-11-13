@@ -117,10 +117,10 @@ MoriBot 有意区分后台用户与手机设备：
 | 调用方 | 认证方式 | 依赖 | 典型接口 |
 | --- | --- | --- | --- |
 | Web 控制台 | 管理员 JWT | `get_current_user` | 登录、系统信息、生成配对码、设备管理、数据导出 |
-| MoriMobile | 设备令牌 | `get_mobile_auth_context` | `/api/v1/mobile/app/*` 角色卡、对话生成等业务接口、WSS |
+| MoriMobile | 设备令牌 | `get_mobile_auth_context` | `/api/v1/mobile/app/*` 角色卡、会话、消息、媒体、WSS |
 | 未配对手机 | 一次性配对码 | 无（限流） | `POST /api/v1/mobile/pair` |
 
-`/api/v1/mobile/app/me` 用于校验设备令牌并获取设备与账户信息；`/api/v1/mobile/app/characters` 和 `/api/v1/mobile/app/chat` 分别提供角色卡列表与对话生成。后续模型设置、文件上传等业务接口统一放在 `/api/v1/mobile/app/*` 下，依赖 `MobileAuthContext`。后台 JWT 与设备令牌不能互相替代。
+`/api/v1/mobile/app/me` 用于校验设备令牌并获取设备与账户信息；`/app/characters` 提供角色卡，`/app/conversations` 管理会话，`/app/conversations/{id}/messages` 读取历史并生成回复，`/app/media/{filename}` 下载生成媒体。后续模型设置、文件上传等接口统一放在 `/api/v1/mobile/app/*` 下，依赖 `MobileAuthContext`。后台 JWT 与设备令牌不能互相替代。
 
 ## 6. 消息事件流
 
@@ -139,7 +139,7 @@ MoriMobile App
 ```
 
 - 每个事件独立 task，默认最多 16 个并发（`EventBus(max_concurrency=16)`）。
-- 手机的正常对话由 `POST /api/v1/mobile/app/chat` 同步调用 `ModelGateway`，不经过事件总线；事件总线保留给 WSS 事件和后续实时推送。
+- 手机的正常对话由 `POST /api/v1/mobile/app/conversations/{id}/messages` 同步调用 `ModelGateway` 并写入会话表，不经过事件总线；事件总线保留给 WSS 事件和后续实时推送。
 - `MoriEvent.stop()` 可以中止后续阶段。
 - 阶段返回异步生成器时使用洋葱模型：`yield` 前的代码先执行，`yield` 后的代码在后续阶段全部完成后执行。
 - 管道调度器在异步生成器分支结束后会直接返回，避免后续阶段被重复执行。
@@ -159,7 +159,7 @@ MoriMobile App
 
 ```text
 MoriMobile
-  ├─ HTTPS JSON API  ──►  /api/v1/mobile/app/*   角色卡、对话生成、设置、上传
+  ├─ HTTPS JSON API  ──►  /api/v1/mobile/app/*   角色卡、会话、消息、媒体、设置
   ├─ HTTPS 配对      ──►  /api/v1/mobile/pair     一次性设备令牌
   └─ WSS             ──►  /api/v1/mobile/ws      服务端事件、推送、连接状态
 ```
@@ -188,6 +188,10 @@ MoriMobile
 - API Key 使用安装密钥派生的 Fernet 加密存储，数据库读取不会直接暴露明文。
 - 模型配置保存在 `model_providers` 表，随数据库备份迁移；旧库启动时自动补 `capabilities` 列。
 - 角色卡保存在 `character_cards` 表，头像文件位于数据目录 `avatars/`，同样随备份迁移；角色卡可按类别覆盖模型，未覆盖时使用系统默认模型。
+- 会话保存在 `conversations` 表，消息保存在 `conversation_messages` 表；用户消息和助手回复在同一个事务中写入。
+- 生成的语音和图片保存在 `data/media/<user_id>/`，消息只保存媒体描述和受鉴权保护的 URL，避免把大段 base64 写进数据库。
+- 模型上下文默认取会话最近 100 条消息，并限制总字符数；完整历史仍保留在数据库中。
+- 删除会话会级联删除消息记录和该会话的本地媒体文件。
 - 系统设置可开启每日模型可用性检测，按多个本地时间自动执行测试连接；结果写入 `last_test_*`，首页展示各模型状态。
 
 ## 6.4 数据可迁移性
@@ -199,7 +203,7 @@ MoriMobile
 4. 导入时校验路径安全、文件大小、哈希、配置 JSON 和 SQLite 完整性。
 5. 原子替换数据目录，并保留 `data.pre-import-*` 回滚点。
 
-未来新增的模型配置、业务数据、模型记忆、上传文件只要落在数据目录，就会自动进入备份，无需修改迁移代码。详见 [data-migration.md](data-migration.md)。
+未来新增的模型配置、会话消息、模型记忆、上传文件只要落在数据目录，就会自动进入备份，无需修改迁移代码。MoriMobile 的本地缓存不属于迁移范围，换机后从服务端重新同步即可。详见 [data-migration.md](data-migration.md)。
 
 ## 7. 扩展点
 
@@ -233,7 +237,7 @@ async def list_characters(
 self.provider_manager.register(MyProvider("openai-1", model="gpt-4o-mini"), default=True)
 ```
 
-`ModelGateway` 可以通过 `chat_provider_id` / `speech_provider_id` / `image_provider_id` 使用角色卡指定的 Provider；未指定时回退该类别的默认提供方。`ProcessStage` 目前仍是占位实现，移动端对话由 `/api/v1/mobile/app/chat` 直接调用 `ModelGateway`。
+`ModelGateway` 可以通过 `chat_provider_id` / `speech_provider_id` / `image_provider_id` 使用角色卡指定的 Provider；未指定时回退该类别的默认提供方。`ProcessStage` 目前仍是占位实现，移动端消息由 `/api/v1/mobile/app/conversations/{id}/messages` 直接调用 `ModelGateway` 并持久化结果。
 
 ### 7.3 新增管道阶段
 
@@ -305,9 +309,9 @@ class RateLimitStage(Stage):
 
 ## 11. 后续演进
 
-1. 多轮上下文由 MoriMobile 本地维护，MoriBot 不新增会话表或消息表。
-2. 主模型流式输出、自动重试和多轮 Agent 工具调用。
-3. MoriMobile HTTP 业务 API（设置同步、文件上传、多端同步）。
+1. 消息重生成、消息删除、会话归档与流式输出。
+2. 主模型自动重试和多轮 Agent 工具调用完善。
+3. MoriMobile 业务 API（模型设置、文件上传）。
 4. 插件管理 API 与热重载。
 5. SSE 实时日志（复用 `LogBroker`）。
 6. 前端登录后的账户安全页与系统设置页。

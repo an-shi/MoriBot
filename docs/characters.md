@@ -25,12 +25,14 @@ chat_provider_id == null
 chat_provider_id != null 且对应 Provider 可用
   → 使用角色指定模型
 chat_provider_id != null 但对应 Provider 已停用或不存在
-  → MoriMobile 对话接口返回 409，不会静默切换模型
+  → MoriMobile 消息接口返回 409，不会静默切换模型
 ```
 
 语音、图片模型使用相同规则。这样角色卡既可以选择非默认模型，也可以始终跟随系统默认模型。
 
 删除 Provider 时，引用它的角色卡会自动把对应字段清空，回退到系统默认模型。角色卡的 `persona` 只在服务端组装系统提示词，不会下发给手机。
+
+删除角色卡不会级联删除历史会话。会话保留创建时的角色名称快照，`character_available` 变为 `false`，手机应禁用输入；用户仍可查看历史，或手动删除会话。
 
 ## 3. 头像
 
