@@ -9,7 +9,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 
@@ -18,6 +18,7 @@ from moribot.core.backup import BackupService, default_backup_filename
 from moribot.core.db import User
 from moribot.core.errors import MoriError
 from moribot.core.i18n import translate
+from moribot.core.logging import RECENT_LOG_LIMIT, get_log_file
 
 from ..deps import (
     get_config,
@@ -30,15 +31,25 @@ from ..responses import ApiResponse, ok
 from ..schemas import (
     HealthCheckSettings,
     HealthInfo,
+    LogEntryOut,
     ModelHealthRunOut,
     PublicInfo,
     SystemInfo,
+    SystemLogsOut,
     SystemSettingsOut,
     SystemSettingsUpdate,
 )
 
 router = APIRouter(prefix="/system", tags=["system"])
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+_LEVEL_ORDER = {
+    "DEBUG": 10,
+    "INFO": 20,
+    "SUCCESS": 25,
+    "WARNING": 30,
+    "ERROR": 40,
+    "CRITICAL": 50,
+}
 
 
 def _settings_response(config) -> SystemSettingsOut:
@@ -168,6 +179,68 @@ async def run_model_health(
             available=available,
             failed=len(results) - available,
         )
+    )
+
+
+@router.get("/logs", response_model=ApiResponse[SystemLogsOut])
+async def system_logs(
+    request: Request,
+    level: str | None = Query(default=None, max_length=16),
+    source: str | None = Query(default=None, max_length=16),
+    q: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=300, ge=1, le=1000),
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Return recent runtime and business API log entries."""
+    entries = request.app.state.log_broker.recent(limit=RECENT_LOG_LIMIT)
+    min_level = _LEVEL_ORDER.get((level or "").upper(), 0)
+    normalized_source = (source or "").strip().lower()
+    query = (q or "").strip().lower()
+
+    filtered = []
+    for entry in entries:
+        if _LEVEL_ORDER.get(entry.level.upper(), 0) < min_level:
+            continue
+        if normalized_source not in {"", "all"} and entry.source != normalized_source:
+            continue
+        if query and query not in entry.message.lower():
+            continue
+        filtered.append(entry)
+
+    total = len(filtered)
+    newest_first = list(reversed(filtered))[:limit]
+    return ok(
+        SystemLogsOut(
+            entries=[
+                LogEntryOut(
+                    time=entry.time,
+                    level=entry.level,
+                    source=entry.source,
+                    message=entry.message,
+                    module=entry.module,
+                    line=entry.line,
+                )
+                for entry in newest_first
+            ],
+            total=total,
+        )
+    )
+
+
+@router.get("/logs/download")
+async def download_system_logs(
+    request: Request,
+    _user: User = Depends(get_current_user),
+) -> FileResponse:
+    """Download the current runtime log file."""
+    path = get_log_file(request.app.state.paths)
+    if not path.is_file():
+        raise MoriError(translate("common.not_found", get_locale(request)), status_code=404)
+    return FileResponse(
+        path,
+        media_type="text/plain",
+        filename="moribot.log",
+        headers={"Cache-Control": "no-store"},
     )
 
 

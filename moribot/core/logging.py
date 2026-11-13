@@ -22,10 +22,11 @@ from loguru import logger
 
 from .paths import AppPaths
 
-RECENT_LOG_LIMIT = 500
+RECENT_LOG_LIMIT = 2000
 SUBSCRIBER_QUEUE_LIMIT = 1000
 
 _CONFIGURED = False
+_BROKER_SINK_ID: int | None = None
 
 
 @dataclass(slots=True)
@@ -38,6 +39,7 @@ class LogEntry:
     module: str = ""
     line: int = 0
     text: str = ""
+    source: str = "app"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -47,6 +49,7 @@ class LogEntry:
             "module": self.module,
             "line": self.line,
             "text": self.text,
+            "source": self.source,
         }
 
 
@@ -142,6 +145,7 @@ def _broker_sink(broker: LogBroker) -> Any:
                 module=record["name"] or "",
                 line=record["line"] or 0,
                 text=str(message),
+                source=str(record["extra"].get("source", "app")),
             )
         )
 
@@ -160,52 +164,56 @@ def setup_logging(
         level: Minimum log level name.
         broker: Optional broker receiving every record.
     """
-    global _CONFIGURED
-    if _CONFIGURED:
-        return
-
+    global _CONFIGURED, _BROKER_SINK_ID
     level = level.upper()
     paths.log_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.remove()
-    logger.add(
-        sys.stderr,
-        level=level,
-        colorize=True,
-        enqueue=True,
-        backtrace=False,
-        diagnose=False,
-        format=(
-            "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
-            "<level>{level: <8}</level> | "
-            "<cyan>{name}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
-        ),
-    )
-    logger.add(
-        paths.log_dir / "moribot.log",
-        level=level,
-        rotation="10 MB",
-        retention="14 days",
-        encoding="utf-8",
-        enqueue=True,
-        backtrace=False,
-        diagnose=False,
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{line} - {message}",
-    )
-
-    if broker is not None:
+    if not _CONFIGURED:
+        logger.remove()
         logger.add(
+            sys.stderr,
+            level=level,
+            colorize=True,
+            enqueue=True,
+            backtrace=False,
+            diagnose=False,
+            format=(
+                "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+                "<level>{level: <8}</level> | "
+                "<cyan>{name}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+            ),
+        )
+        logger.add(
+            paths.log_dir / "moribot.log",
+            level=level,
+            rotation="10 MB",
+            retention="14 days",
+            encoding="utf-8",
+            enqueue=True,
+            backtrace=False,
+            diagnose=False,
+            format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{line} - {message}",
+        )
+        logging.basicConfig(handlers=[_InterceptHandler()], level=0, force=True)
+        for name in ("uvicorn.access", "httpx", "httpcore", "aiosqlite", "sqlalchemy.engine"):
+            logging.getLogger(name).setLevel(logging.WARNING)
+        _CONFIGURED = True
+
+    # Tests and embedding may build several app instances in one process. Keep
+    # exactly one broker sink and rebind it to the current broker.
+    if _BROKER_SINK_ID is not None:
+        try:
+            logger.remove(_BROKER_SINK_ID)
+        except ValueError:
+            pass
+        _BROKER_SINK_ID = None
+    if broker is not None:
+        _BROKER_SINK_ID = logger.add(
             _broker_sink(broker),
             level=level,
             enqueue=True,
             format="{message}",
         )
-
-    logging.basicConfig(handlers=[_InterceptHandler()], level=0, force=True)
-    for name in ("uvicorn.access", "httpx", "httpcore", "aiosqlite", "sqlalchemy.engine"):
-        logging.getLogger(name).setLevel(logging.WARNING)
-
-    _CONFIGURED = True
 
 
 def get_log_file(paths: AppPaths) -> Path:

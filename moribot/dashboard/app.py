@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -204,6 +205,55 @@ def create_app(
                 "Strict-Transport-Security",
                 "max-age=31536000",
             )
+        return response
+
+    @app.middleware("http")
+    async def access_log(request: Request, call_next):
+        path = request.url.path
+        is_business_api = path.startswith("/api/v1/") and path not in {
+            "/api/v1/system/health",
+            "/api/v1/system/public",
+        }
+        if (
+            not is_business_api
+            or path.startswith("/api/v1/system/logs")
+            or request.method == "OPTIONS"
+        ):
+            return await call_next(request)
+
+        started = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            logger.bind(source="http").exception(
+                "{} {} failed",
+                request.method,
+                path,
+            )
+            raise
+
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        status = response.status_code
+        level = "ERROR" if status >= 500 else "WARNING" if status >= 400 else "INFO"
+        user = getattr(request.state, "user", None)
+        device = getattr(request.state, "mobile_device", None)
+        if user is not None:
+            actor = f"user:{getattr(user, 'username', '')}"
+        elif device is not None:
+            actor = f"device:{getattr(device, 'name', '')}"
+        else:
+            actor = "anonymous"
+        client = request.client.host if request.client is not None else "-"
+        logger.bind(source="http").log(
+            level,
+            "{} {} -> {} ({} ms) actor={} ip={}",
+            request.method,
+            path,
+            status,
+            elapsed_ms,
+            actor,
+            client,
+        )
         return response
 
     @app.exception_handler(MoriError)

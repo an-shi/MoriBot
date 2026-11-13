@@ -82,6 +82,20 @@ class ModelHealthRunOut(BaseModel):
     failed: int = 0
 
 
+class LogEntryOut(BaseModel):
+    time: float
+    level: str
+    source: str = "app"
+    message: str
+    module: str = ""
+    line: int = 0
+
+
+class SystemLogsOut(BaseModel):
+    entries: list[LogEntryOut] = Field(default_factory=list)
+    total: int = 0
+
+
 class HealthInfo(BaseModel):
     status: str = "ok"
     version: str
