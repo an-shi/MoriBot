@@ -30,7 +30,7 @@ export default {
     },
     pointPlatforms: {
       title: 'MoriMobile 配套',
-      desc: '专用手机客户端：实时聊天走 WSS，业务接口走 HTTPS',
+      desc: '专用手机客户端：对话生成走 HTTPS，服务端事件走 WSS',
     },
     pointPlugins: {
       title: '插件式扩展',
@@ -58,7 +58,6 @@ export default {
     console: '控制台',
     mainNavigation: '主导航',
     home: '首页',
-    chat: '对话',
     providers: '模型服务',
     characters: '角色卡',
     platforms: 'MoriMobile',

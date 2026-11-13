@@ -31,7 +31,7 @@ export default {
     },
     pointPlatforms: {
       title: 'MoriMobile companion',
-      desc: 'Realtime chat over WSS, business APIs over HTTPS',
+      desc: 'Companion phone app: chat over HTTPS, server events over WSS',
     },
     pointPlugins: {
       title: 'Plugin extensions',
@@ -59,7 +59,6 @@ export default {
     console: 'Console',
     mainNavigation: 'Main navigation',
     home: 'Home',
-    chat: 'Chat',
     providers: 'Models',
     characters: 'Characters',
     platforms: 'MoriMobile',

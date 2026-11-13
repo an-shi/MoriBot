@@ -21,7 +21,6 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { labelKey: 'nav.home', icon: 'mdi-view-dashboard-outline', to: '/', available: true },
-  { labelKey: 'nav.chat', icon: 'mdi-message-text-outline', available: false },
   { labelKey: 'nav.providers', icon: 'mdi-brain', to: '/providers', available: true },
   {
     labelKey: 'nav.characters',
