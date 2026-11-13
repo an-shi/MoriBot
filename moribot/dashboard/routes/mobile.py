@@ -25,12 +25,16 @@ from ..deps import (
     get_current_user,
     get_locale,
     get_mobile_auth_context,
+    get_mobile_chat_service,
     get_mobile_limiter,
     get_mobile_service,
 )
 from ..rate_limit import LoginRateLimiter
 from ..responses import ApiResponse, ok
 from ..schemas import (
+    MobileCharacterOut,
+    MobileChatOut,
+    MobileChatRequest,
     MobileDeviceOut,
     MobilePairOut,
     MobilePairRequest,
@@ -39,6 +43,7 @@ from ..schemas import (
     PairingCodeOut,
     UserOut,
 )
+from ..services.mobile_chat_service import MobileChatService
 from ..services.mobile_service import MobileService
 
 router = APIRouter(prefix="/mobile", tags=["mobile"])
@@ -194,6 +199,35 @@ async def mobile_app_me(
             protocol=PROTOCOL_VERSION,
         )
     )
+
+
+@router.get("/app/characters", response_model=ApiResponse[list[MobileCharacterOut]])
+async def mobile_characters(
+    _auth: MobileAuthContext = Depends(get_mobile_auth_context),
+    service: MobileChatService = Depends(get_mobile_chat_service),
+) -> dict:
+    """List enabled character cards that the phone can start a chat with."""
+    return ok(await service.list_characters())
+
+
+@router.post("/app/chat", response_model=ApiResponse[MobileChatOut])
+async def mobile_chat(
+    payload: MobileChatRequest,
+    request: Request,
+    auth: MobileAuthContext = Depends(get_mobile_auth_context),
+    service: MobileChatService = Depends(get_mobile_chat_service),
+) -> dict:
+    """Generate one assistant reply for a character and a conversation snapshot.
+
+    MoriBot does not persist conversations. The phone sends its local history
+    and replaces it after receiving the reply.
+    """
+    result = await service.generate(
+        payload,
+        device=auth.device,
+        locale=get_locale(request),
+    )
+    return ok(result)
 
 
 @router.websocket("/ws")

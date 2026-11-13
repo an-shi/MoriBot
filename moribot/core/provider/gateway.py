@@ -1,22 +1,25 @@
 """Orchestration for the main model and its speech/image tools.
 
 The chat model is always in charge. If a tool call asks for speech or an image,
-the gateway invokes the configured default provider for that role and returns
-the generated media alongside the final text reply. This keeps the transport
-and conversation layers independent from provider-specific tool APIs.
+the gateway invokes the configured provider for that role and returns the
+generated media alongside the final text reply. Each call may carry a
+per-character provider override; ``None`` falls back to the system default for
+that category. This keeps the transport and conversation layers independent
+from provider-specific tool APIs.
 """
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TypeVar
 
 from .base import (
     ChatMessage,
     ChatProvider,
     GeneratedImage,
     ImageProvider,
+    Provider,
     ProviderCategory,
     ProviderError,
     SpeechProvider,
@@ -25,6 +28,8 @@ from .base import (
 from .manager import ProviderManager
 
 MAX_TOOL_ROUNDS = 2
+
+ProviderT = TypeVar("ProviderT", bound=Provider)
 
 
 @dataclass(slots=True)
@@ -44,9 +49,33 @@ class ModelGateway:
     def __init__(self, manager: ProviderManager) -> None:
         self.manager = manager
 
-    def tool_definitions(self) -> list[dict[str, Any]]:
+    def _required(
+        self,
+        category: ProviderCategory,
+        provider_id: int | str | None,
+        expected_type: type[ProviderT],
+    ) -> ProviderT:
+        provider = self.manager.resolve(category, provider_id)
+        if provider is None:
+            if provider_id is None:
+                raise ProviderError(f"No {category.value} model provider is configured")
+            raise ProviderError(
+                f"The selected {category.value} model provider is unavailable"
+            )
+        if not isinstance(provider, expected_type):
+            raise ProviderError(
+                f"The selected {category.value} model provider has the wrong type"
+            )
+        return provider
+
+    def tool_definitions(
+        self,
+        *,
+        speech_provider_id: int | str | None = None,
+        image_provider_id: int | str | None = None,
+    ) -> list[dict[str, Any]]:
         tools: list[dict[str, Any]] = []
-        if self.manager.get_default(ProviderCategory.SPEECH) is not None:
+        if self.manager.resolve(ProviderCategory.SPEECH, speech_provider_id) is not None:
             tools.append(
                 {
                     "type": "function",
@@ -70,7 +99,7 @@ class ModelGateway:
                     },
                 }
             )
-        if self.manager.get_default(ProviderCategory.IMAGE) is not None:
+        if self.manager.resolve(ProviderCategory.IMAGE, image_provider_id) is not None:
             tools.append(
                 {
                     "type": "function",
@@ -103,15 +132,23 @@ class ModelGateway:
         self,
         messages: list[ChatMessage],
         *,
+        chat_provider_id: int | str | None = None,
+        speech_provider_id: int | str | None = None,
+        image_provider_id: int | str | None = None,
         max_tool_rounds: int = MAX_TOOL_ROUNDS,
         **kwargs: Any,
     ) -> ModelReply:
         """Run a chat completion and execute any speech/image tool calls."""
-        chat_provider = self.manager.get_default(ProviderCategory.CHAT)
-        if not isinstance(chat_provider, ChatProvider):
-            raise ProviderError("No chat model provider is configured")
+        chat_provider = self._required(
+            ProviderCategory.CHAT,
+            chat_provider_id,
+            ChatProvider,
+        )
 
-        tools = self.tool_definitions()
+        tools = self.tool_definitions(
+            speech_provider_id=speech_provider_id,
+            image_provider_id=image_provider_id,
+        )
         working: list[Any] = [
             message if isinstance(message, ChatMessage) else ChatMessage(**message)
             for message in messages
@@ -165,6 +202,7 @@ class ModelGateway:
                         speech_kwargs["voice"] = str(arguments["voice"])
                     speech = await self.speak(
                         str(arguments.get("text", "")),
+                        provider_id=speech_provider_id,
                         **speech_kwargs,
                     )
                     result: dict[str, Any] = {
@@ -179,6 +217,7 @@ class ModelGateway:
                         image_kwargs["size"] = str(arguments["size"])
                     images = await self.generate_image(
                         str(arguments.get("prompt", "")),
+                        provider_id=image_provider_id,
                         **image_kwargs,
                     )
                     result = {
@@ -200,14 +239,22 @@ class ModelGateway:
 
         return ModelReply(text="", speech=speech, images=images, tool_rounds=max_tool_rounds)
 
-    async def speak(self, text: str, **kwargs: Any) -> SpeechResult:
-        provider = self.manager.get_default(ProviderCategory.SPEECH)
-        if not isinstance(provider, SpeechProvider):
-            raise ProviderError("No speech model provider is configured")
+    async def speak(
+        self,
+        text: str,
+        *,
+        provider_id: int | str | None = None,
+        **kwargs: Any,
+    ) -> SpeechResult:
+        provider = self._required(ProviderCategory.SPEECH, provider_id, SpeechProvider)
         return await provider.synthesize(text, **kwargs)
 
-    async def generate_image(self, prompt: str, **kwargs: Any) -> list[GeneratedImage]:
-        provider = self.manager.get_default(ProviderCategory.IMAGE)
-        if not isinstance(provider, ImageProvider):
-            raise ProviderError("No image model provider is configured")
+    async def generate_image(
+        self,
+        prompt: str,
+        *,
+        provider_id: int | str | None = None,
+        **kwargs: Any,
+    ) -> list[GeneratedImage]:
+        provider = self._required(ProviderCategory.IMAGE, provider_id, ImageProvider)
         return await provider.generate(prompt, **kwargs)

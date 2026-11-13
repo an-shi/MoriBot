@@ -56,6 +56,20 @@ class ProviderManager:
             None,
         )
 
+    def resolve(self, category: str, provider_id: int | str | None = None) -> Provider | None:
+        """Resolve an explicit provider override or fall back to the default.
+
+        An explicit id that is missing, disabled or belongs to another category
+        returns ``None`` instead of silently using a different model. Callers
+        can decide whether that is a hard error or an optional capability.
+        """
+        if provider_id is None or str(provider_id).strip() == "":
+            return self.get_default(category)
+        provider = self._providers.get(str(provider_id))
+        if provider is None or provider.category != category:
+            return None
+        return provider
+
     async def load_specs(self, specs: list[ProviderConfigSpec]) -> None:
         """Atomically replace all providers after a configuration change."""
         new_providers: dict[str, Provider] = {}

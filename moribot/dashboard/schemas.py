@@ -138,6 +138,70 @@ class MobileSelfOut(BaseModel):
     protocol: int
 
 
+class MobileCharacterOut(BaseModel):
+    """A character card as seen by the phone.
+
+    The long persona prompt stays on the server; the phone only needs enough
+    metadata to render a picker and know which media capabilities are usable.
+    """
+
+    id: int
+    name: str
+    avatar: str = ""
+    description: str = ""
+    chat_available: bool = True
+    speech_available: bool = False
+    image_available: bool = False
+    updated_at: datetime
+
+
+class MobileChatMessageIn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=8000)
+
+
+class MobileChatRequest(BaseModel):
+    """One conversation turn.
+
+    The phone owns the history and sends the full context on every request.
+    ``client_message_id`` is echoed back so the client can match the reply to
+    the local message that triggered it.
+    """
+
+    character_id: int
+    messages: list[MobileChatMessageIn] = Field(min_length=1, max_length=200)
+    client_message_id: str = Field(default="", max_length=128)
+    speech: bool = False
+
+
+class MobileChatModelOut(BaseModel):
+    provider_id: str
+    model: str
+
+
+class MobileSpeechOut(BaseModel):
+    mime_type: str = "audio/mpeg"
+    format: str = "mp3"
+    data_url: str
+    byte_length: int = 0
+
+
+class MobileImageOut(BaseModel):
+    mime_type: str = "image/png"
+    data_url: str | None = None
+    url: str | None = None
+
+
+class MobileChatOut(BaseModel):
+    client_message_id: str
+    character_id: int
+    text: str = ""
+    speech: MobileSpeechOut | None = None
+    images: list[MobileImageOut] = Field(default_factory=list)
+    chat_model: MobileChatModelOut
+    created_at: datetime
+
+
 ProviderCategoryLiteral = Literal["chat", "speech", "image"]
 
 

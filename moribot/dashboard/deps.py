@@ -24,6 +24,7 @@ from moribot.core.security import decode_access_token
 from .rate_limit import LoginRateLimiter
 from .services.auth_service import AuthService
 from .services.character_service import CharacterService
+from .services.mobile_chat_service import MobileChatService
 from .services.mobile_service import MobileService
 from .services.provider_service import ProviderConfigService
 
@@ -60,6 +61,10 @@ def get_mobile_limiter(request: Request) -> LoginRateLimiter:
 
 def get_mobile_service(request: Request) -> MobileService:
     return cast(MobileService, request.app.state.mobile_service)
+
+
+def get_mobile_chat_service(request: Request) -> MobileChatService:
+    return cast(MobileChatService, request.app.state.mobile_chat_service)
 
 
 def get_provider_service(request: Request) -> ProviderConfigService:

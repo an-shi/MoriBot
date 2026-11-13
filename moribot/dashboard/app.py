@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,8 +18,6 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-
-from dotenv import load_dotenv
 
 from moribot import __version__
 from moribot.core.config import ConfigManager
@@ -34,6 +33,7 @@ from .responses import error
 from .routes import API_V1_PREFIX, api_router
 from .services.auth_service import AuthService
 from .services.character_service import CharacterService
+from .services.mobile_chat_service import MobileChatService
 from .services.mobile_service import MobileService
 from .services.model_health import ModelHealthScheduler
 from .services.provider_service import ProviderConfigService
@@ -120,6 +120,7 @@ def create_app(
     )
     provider_service = ProviderConfigService(lifecycle)
     character_service = CharacterService(lifecycle)
+    mobile_chat_service = MobileChatService(lifecycle, character_service)
     health_scheduler = ModelHealthScheduler(resolved_config, provider_service)
 
     @asynccontextmanager
@@ -157,6 +158,7 @@ def create_app(
     app.state.mobile_service = mobile_service
     app.state.provider_service = provider_service
     app.state.character_service = character_service
+    app.state.mobile_chat_service = mobile_chat_service
     app.state.model_health_scheduler = health_scheduler
     app.state.login_limiter = LoginRateLimiter()
     app.state.mobile_limiter = LoginRateLimiter()
