@@ -117,7 +117,6 @@ class CharacterCard(TimestampMixin, SQLModel, table=True):
     avatar: str = Field(default="", max_length=512, nullable=False)
     description: str = Field(default="", max_length=1000, nullable=False)
     persona: str = Field(default="", max_length=20000, nullable=False)
-    greeting: str = Field(default="", max_length=4000, nullable=False)
     chat_provider_id: int | None = Field(default=None, index=True)
     speech_provider_id: int | None = Field(default=None, index=True)
     image_provider_id: int | None = Field(default=None, index=True)

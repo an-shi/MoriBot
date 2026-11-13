@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import sqlite3
 
 from fastapi.testclient import TestClient
 
@@ -59,7 +60,6 @@ def _character(name: str, **overrides):
         "avatar": "",
         "description": "测试角色",
         "persona": "你是一个测试角色。",
-        "greeting": "你好。",
         "chat_provider_id": None,
         "speech_provider_id": None,
         "image_provider_id": None,
@@ -151,6 +151,13 @@ def test_character_avatar_upload_and_cleanup(tmp_path):
         assert created.status_code == 200
         character_id = created.json()["data"]["id"]
 
+        external = client.post(
+            "/api/v1/characters",
+            headers=headers,
+            json=_character("外链头像", avatar="https://example.com/avatar.png"),
+        )
+        assert external.status_code == 400
+
         upload = client.post(
             "/api/v1/characters/avatar",
             headers=headers,
@@ -180,3 +187,43 @@ def test_character_avatar_upload_and_cleanup(tmp_path):
         )
         assert deleted.status_code == 200
         assert not avatar_file.exists()
+
+
+def test_existing_character_table_drops_legacy_greeting_column(tmp_path):
+    paths = AppPaths.resolve(tmp_path)
+    paths.ensure()
+    config = ConfigManager(paths.config_file)
+    config.load()
+
+    connection = sqlite3.connect(paths.db_file)
+    connection.executescript(
+        """
+        CREATE TABLE character_cards (
+            id INTEGER PRIMARY KEY,
+            name VARCHAR(64) NOT NULL UNIQUE,
+            avatar VARCHAR(512) NOT NULL DEFAULT '',
+            description VARCHAR(1000) NOT NULL DEFAULT '',
+            persona VARCHAR(20000) NOT NULL DEFAULT '',
+            greeting VARCHAR(4000) NOT NULL DEFAULT '',
+            chat_provider_id INTEGER,
+            speech_provider_id INTEGER,
+            image_provider_id INTEGER,
+            enabled BOOLEAN NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL
+        );
+        """
+    )
+    connection.commit()
+    connection.close()
+
+    app = create_app(paths=paths, config=config)
+    with TestClient(app):
+        pass
+
+    connection = sqlite3.connect(paths.db_file)
+    columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(character_cards)").fetchall()
+    }
+    connection.close()
+    assert "greeting" not in columns

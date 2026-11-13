@@ -156,7 +156,6 @@ export interface CharacterCard {
   avatar: string
   description: string
   persona: string
-  greeting: string
   chat_provider_id: number | null
   speech_provider_id: number | null
   image_provider_id: number | null
@@ -170,7 +169,6 @@ export interface CharacterPayload {
   avatar: string
   description: string
   persona: string
-  greeting: string
   chat_provider_id: number | null
   speech_provider_id: number | null
   image_provider_id: number | null

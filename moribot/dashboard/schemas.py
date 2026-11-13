@@ -233,7 +233,6 @@ class CharacterCreateRequest(BaseModel):
     avatar: str = Field(default="", max_length=512)
     description: str = Field(default="", max_length=1000)
     persona: str = Field(default="", max_length=20000)
-    greeting: str = Field(default="", max_length=4000)
     chat_provider_id: int | None = None
     speech_provider_id: int | None = None
     image_provider_id: int | None = None
@@ -245,7 +244,6 @@ class CharacterUpdateRequest(BaseModel):
     avatar: str | None = Field(default=None, max_length=512)
     description: str | None = Field(default=None, max_length=1000)
     persona: str | None = Field(default=None, max_length=20000)
-    greeting: str | None = Field(default=None, max_length=4000)
     chat_provider_id: int | None = None
     speech_provider_id: int | None = None
     image_provider_id: int | None = None
@@ -258,7 +256,6 @@ class CharacterOut(BaseModel):
     avatar: str = ""
     description: str = ""
     persona: str = ""
-    greeting: str = ""
     chat_provider_id: int | None = None
     speech_provider_id: int | None = None
     image_provider_id: int | None = None

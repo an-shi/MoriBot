@@ -58,6 +58,7 @@ class CharacterService:
             raise ConflictError(translate("character.name_exists", locale))
         values = payload.model_dump()
         values["name"] = name
+        values["avatar"] = self._validate_avatar(values.get("avatar", ""), locale)
         for category, key in (
             ("chat", "chat_provider_id"),
             ("speech", "speech_provider_id"),
@@ -88,9 +89,11 @@ class CharacterService:
                 raise ConflictError(translate("character.name_exists", locale))
             values["name"] = name
 
-        for key in ("avatar", "description", "persona", "greeting"):
+        for key in ("avatar", "description", "persona"):
             if key in values and values[key] is None:
                 values[key] = ""
+        if "avatar" in values:
+            values["avatar"] = self._validate_avatar(values["avatar"], locale)
         if values.get("enabled") is None:
             values.pop("enabled", None)
 
@@ -154,6 +157,17 @@ class CharacterService:
             raise MoriError(translate("character.invalid_name", locale))
         return name
 
+    def _validate_avatar(self, avatar: str, locale: str) -> str:
+        avatar = (avatar or "").strip()
+        if not avatar:
+            return ""
+        if not avatar.startswith("/avatars/"):
+            raise MoriError(translate("character.avatar_invalid", locale))
+        filename = Path(avatar).name
+        if not filename or not (self.core.paths.avatar_dir / filename).is_file():
+            raise MoriError(translate("character.avatar_invalid", locale))
+        return f"/avatars/{filename}"
+
     async def _validate_provider(
         self,
         provider_id: int | None,
@@ -188,7 +202,6 @@ class CharacterService:
             avatar=record.avatar,
             description=record.description,
             persona=record.persona,
-            greeting=record.greeting,
             chat_provider_id=record.chat_provider_id,
             speech_provider_id=record.speech_provider_id,
             image_provider_id=record.image_provider_id,

@@ -34,6 +34,13 @@ class SQLiteDatabase(BaseDatabase):
                     "ALTER TABLE model_providers ADD COLUMN capabilities JSON"
                 )
 
+            # Character cards originally shipped with a greeting column. It is
+            # no longer part of the model; drop it from existing databases.
+            result = await connection.exec_driver_sql("PRAGMA table_info(character_cards)")
+            character_columns = {row[1] for row in result.fetchall()}
+            if "greeting" in character_columns:
+                await connection.exec_driver_sql("ALTER TABLE character_cards DROP COLUMN greeting")
+
     async def count_users(self) -> int:
         return await self._count_users()
 

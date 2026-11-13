@@ -29,7 +29,6 @@ const name = ref('')
 const avatar = ref('')
 const description = ref('')
 const persona = ref('')
-const greeting = ref('')
 const chatProviderId = ref(0)
 const speechProviderId = ref(0)
 const imageProviderId = ref(0)
@@ -37,6 +36,8 @@ const enabled = ref(true)
 const errorMessage = ref('')
 const saving = ref(false)
 const avatarUploading = ref(false)
+const avatarInput = ref<HTMLInputElement | null>(null)
+const previewOpen = ref(false)
 
 const dialogOpen = computed({
   get: () => props.modelValue,
@@ -71,13 +72,13 @@ function resetForm(): void {
   avatar.value = character?.avatar ?? ''
   description.value = character?.description ?? ''
   persona.value = character?.persona ?? ''
-  greeting.value = character?.greeting ?? ''
   chatProviderId.value = character?.chat_provider_id ?? 0
   speechProviderId.value = character?.speech_provider_id ?? 0
   imageProviderId.value = character?.image_provider_id ?? 0
   enabled.value = character?.enabled ?? true
   errorMessage.value = ''
   avatarUploading.value = false
+  previewOpen.value = false
 }
 
 watch(
@@ -121,6 +122,17 @@ async function handleAvatarFiles(value: File | File[] | null): Promise<void> {
   }
 }
 
+function triggerAvatarUpload(): void {
+  avatarInput.value?.click()
+}
+
+async function onAvatarFileChange(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0] ?? null
+  input.value = ''
+  await handleAvatarFiles(file)
+}
+
 async function save(): Promise<void> {
   if (!name.value.trim()) {
     errorMessage.value = t('characters.nameRequired')
@@ -133,7 +145,6 @@ async function save(): Promise<void> {
     avatar: avatar.value.trim(),
     description: description.value.trim(),
     persona: persona.value,
-    greeting: greeting.value,
     chat_provider_id: chatProviderId.value || null,
     speech_provider_id: speechProviderId.value || null,
     image_provider_id: imageProviderId.value || null,
@@ -184,32 +195,53 @@ async function save(): Promise<void> {
         </v-alert>
 
         <div class="avatar-editor">
-          <div class="avatar-preview">
+          <div class="avatar-preview" :class="{ 'avatar-preview--empty': !avatar }">
             <img v-if="avatar" :src="avatar" :alt="name || t('characters.avatar')" />
             <span v-else>{{ avatarInitial }}</span>
+            <div class="avatar-actions">
+              <v-btn
+                icon
+                size="x-small"
+                variant="flat"
+                color="white"
+                :loading="avatarUploading"
+                :aria-label="t('characters.avatarUpload')"
+                @click.stop="triggerAvatarUpload"
+              >
+                <v-icon size="16">mdi-upload</v-icon>
+                <v-tooltip activator="parent" location="top">
+                  {{ t('characters.avatarUpload') }}
+                </v-tooltip>
+              </v-btn>
+              <v-btn
+                icon
+                size="x-small"
+                variant="flat"
+                color="white"
+                :disabled="!avatar"
+                :aria-label="t('characters.avatarPreview')"
+                @click.stop="previewOpen = true"
+              >
+                <v-icon size="16">mdi-eye</v-icon>
+                <v-tooltip activator="parent" location="top">
+                  {{ t('characters.avatarPreview') }}
+                </v-tooltip>
+              </v-btn>
+            </div>
+            <input
+              ref="avatarInput"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              class="avatar-input"
+              @change="onAvatarFileChange"
+            />
           </div>
           <div class="avatar-fields">
             <label>{{ t('characters.avatar') }}</label>
-            <v-text-field
-              v-model="avatar"
-              variant="outlined"
-              density="comfortable"
-              hide-details="auto"
-              :placeholder="t('characters.avatarUrlPlaceholder')"
-              prepend-inner-icon="mdi-link-variant"
-            />
-            <v-file-input
-              :model-value="null"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              variant="outlined"
-              density="comfortable"
-              hide-details="auto"
-              prepend-icon=""
-              prepend-inner-icon="mdi-upload"
-              :label="t('characters.avatarUpload')"
-              :loading="avatarUploading"
-              @update:model-value="handleAvatarFiles"
-            />
+            <p class="avatar-state">
+              {{ avatar ? name || t('characters.avatar') : t('characters.avatarEmpty') }}
+            </p>
+            <p class="field-hint">{{ t('characters.avatarHoverHint') }}</p>
             <p class="field-hint">{{ t('characters.avatarHint') }}</p>
           </div>
         </div>
@@ -255,21 +287,10 @@ async function save(): Promise<void> {
             variant="outlined"
             density="comfortable"
             hide-details="auto"
-            rows="6"
+            rows="8"
             :placeholder="t('characters.personaPlaceholder')"
           />
-        </div>
-
-        <div class="field">
-          <label>{{ t('characters.greeting') }}</label>
-          <v-textarea
-            v-model="greeting"
-            variant="outlined"
-            density="comfortable"
-            hide-details="auto"
-            rows="3"
-            :placeholder="t('characters.greetingPlaceholder')"
-          />
+          <p class="field-hint">{{ t('characters.personaHint') }}</p>
         </div>
 
         <div class="model-panel">
@@ -331,6 +352,22 @@ async function save(): Promise<void> {
       </v-card-text>
     </v-card>
   </v-dialog>
+
+  <v-dialog v-model="previewOpen" max-width="620">
+    <v-card v-if="avatar" class="avatar-preview-dialog">
+      <img :src="avatar" :alt="name || t('characters.avatar')" />
+      <v-btn
+        icon
+        variant="flat"
+        size="small"
+        class="preview-close"
+        :aria-label="t('characters.cancel')"
+        @click="previewOpen = false"
+      >
+        <v-icon>mdi-close</v-icon>
+      </v-btn>
+    </v-card>
+  </v-dialog>
 </template>
 
 <style scoped lang="scss">
@@ -373,6 +410,7 @@ async function save(): Promise<void> {
 }
 
 .avatar-preview {
+  position: relative;
   display: grid;
   width: 92px;
   height: 92px;
@@ -393,9 +431,37 @@ async function save(): Promise<void> {
   object-fit: cover;
 }
 
+.avatar-input {
+  display: none;
+}
+
+.avatar-actions {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: rgb(0 0 0 / 42%);
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.avatar-preview:hover .avatar-actions,
+.avatar-preview:focus-within .avatar-actions {
+  opacity: 1;
+}
+
 .avatar-fields {
   min-width: 0;
   flex: 1;
+}
+
+.avatar-state {
+  margin: 2px 0 0;
+  color: var(--mori-text);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .avatar-fields label,
@@ -407,8 +473,7 @@ async function save(): Promise<void> {
   font-weight: 600;
 }
 
-.field :deep(.v-field),
-.avatar-fields :deep(.v-field) {
+.field :deep(.v-field) {
   border-radius: 12px;
   background: var(--mori-panel-2);
 }
@@ -490,6 +555,40 @@ async function save(): Promise<void> {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 6px;
+}
+
+.avatar-preview-dialog {
+  position: relative;
+  padding: 10px;
+  background: var(--mori-panel) !important;
+}
+
+.avatar-preview-dialog img {
+  display: block;
+  width: 100%;
+  max-height: 72vh;
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+.preview-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+}
+
+@media (hover: none) {
+  .avatar-actions {
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding: 6px;
+    background: transparent;
+    opacity: 1;
+  }
+
+  .avatar-actions :deep(.v-btn) {
+    background: rgb(0 0 0 / 55%) !important;
+  }
 }
 
 @media (max-width: 680px) {
