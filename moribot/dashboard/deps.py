@@ -23,6 +23,7 @@ from moribot.core.security import decode_access_token
 
 from .rate_limit import LoginRateLimiter
 from .services.auth_service import AuthService
+from .services.character_service import CharacterService
 from .services.mobile_service import MobileService
 from .services.provider_service import ProviderConfigService
 
@@ -63,6 +64,10 @@ def get_mobile_service(request: Request) -> MobileService:
 
 def get_provider_service(request: Request) -> ProviderConfigService:
     return cast(ProviderConfigService, request.app.state.provider_service)
+
+
+def get_character_service(request: Request) -> CharacterService:
+    return cast(CharacterService, request.app.state.character_service)
 
 
 async def get_mobile_auth_context(

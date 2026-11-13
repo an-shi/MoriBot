@@ -265,6 +265,7 @@ class ProviderConfigService:
             raise NotFoundError(translate("provider.not_found", locale))
         category = record.category
         await self.db.delete_model_provider(provider_id)
+        await self.db.clear_character_provider_refs(provider_id)
         await self._ensure_default(category)
         await self.core.reload_providers()
 

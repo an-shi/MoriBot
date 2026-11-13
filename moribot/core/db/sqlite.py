@@ -9,7 +9,7 @@ from sqlalchemy import func, update
 from sqlmodel import select
 
 from .base import BaseDatabase
-from .models import MobileDevice, MobilePairingCode, ModelProvider, User, utcnow
+from .models import CharacterCard, MobileDevice, MobilePairingCode, ModelProvider, User, utcnow
 
 
 class SQLiteDatabase(BaseDatabase):
@@ -305,3 +305,69 @@ class SQLiteDatabase(BaseDatabase):
             provider.last_tested_at = utcnow()
             self._touch(provider)
             session.add(provider)
+
+    # -- Character cards --------------------------------------------------
+
+    async def list_character_cards(self) -> list[CharacterCard]:
+        async with self.session() as session:
+            result = await session.execute(
+                select(CharacterCard).order_by(CharacterCard.created_at.asc())
+            )
+            return list(result.scalars().all())
+
+    async def get_character_card(self, character_id: int) -> CharacterCard | None:
+        async with self.session() as session:
+            return await session.get(CharacterCard, character_id)
+
+    async def get_character_card_by_name(self, name: str) -> CharacterCard | None:
+        async with self.session() as session:
+            result = await session.execute(
+                select(CharacterCard).where(CharacterCard.name == name).limit(1)
+            )
+            return result.scalar_one_or_none()
+
+    async def create_character_card(self, values: dict) -> CharacterCard:
+        character = CharacterCard(**values)
+        async with self.session() as session:
+            session.add(character)
+            await session.flush()
+            await session.refresh(character)
+        return character
+
+    async def update_character_card(
+        self,
+        character_id: int,
+        values: dict,
+    ) -> CharacterCard | None:
+        async with self.session() as session:
+            character = await session.get(CharacterCard, character_id)
+            if character is None:
+                return None
+            for key, value in values.items():
+                setattr(character, key, value)
+            self._touch(character)
+            session.add(character)
+            await session.flush()
+            await session.refresh(character)
+            return character
+
+    async def delete_character_card(self, character_id: int) -> bool:
+        async with self.session() as session:
+            character = await session.get(CharacterCard, character_id)
+            if character is None:
+                return False
+            await session.delete(character)
+            return True
+
+    async def clear_character_provider_refs(self, provider_id: int) -> None:
+        async with self.session() as session:
+            for column in (
+                CharacterCard.chat_provider_id,
+                CharacterCard.speech_provider_id,
+                CharacterCard.image_provider_id,
+            ):
+                await session.execute(
+                    update(CharacterCard)
+                    .where(column == provider_id)
+                    .values({column.key: None, "updated_at": utcnow()})
+                )

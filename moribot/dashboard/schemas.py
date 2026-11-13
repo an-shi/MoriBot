@@ -226,3 +226,50 @@ class ProviderTestResult(BaseModel):
     message: str
     latency_ms: int = 0
     preview: str = ""
+
+
+class CharacterCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    avatar: str = Field(default="", max_length=512)
+    description: str = Field(default="", max_length=1000)
+    persona: str = Field(default="", max_length=20000)
+    greeting: str = Field(default="", max_length=4000)
+    chat_provider_id: int | None = None
+    speech_provider_id: int | None = None
+    image_provider_id: int | None = None
+    enabled: bool = True
+
+
+class CharacterUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=64)
+    avatar: str | None = Field(default=None, max_length=512)
+    description: str | None = Field(default=None, max_length=1000)
+    persona: str | None = Field(default=None, max_length=20000)
+    greeting: str | None = Field(default=None, max_length=4000)
+    chat_provider_id: int | None = None
+    speech_provider_id: int | None = None
+    image_provider_id: int | None = None
+    enabled: bool | None = None
+
+
+class CharacterOut(BaseModel):
+    id: int
+    name: str
+    avatar: str = ""
+    description: str = ""
+    persona: str = ""
+    greeting: str = ""
+    chat_provider_id: int | None = None
+    speech_provider_id: int | None = None
+    image_provider_id: int | None = None
+    enabled: bool = True
+    created_at: datetime
+    updated_at: datetime
+
+
+class CharacterAvatarUploadRequest(BaseModel):
+    data_url: str = Field(min_length=1, max_length=4_000_000)
+
+
+class CharacterAvatarOut(BaseModel):
+    url: str

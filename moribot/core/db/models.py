@@ -105,3 +105,20 @@ class ModelProvider(TimestampMixin, SQLModel, table=True):
         default=None,
         sa_type=DateTime(timezone=False),
     )
+
+
+class CharacterCard(TimestampMixin, SQLModel, table=True):
+    """A persona card with optional per-category model overrides."""
+
+    __tablename__ = "character_cards"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=64, unique=True, index=True, nullable=False)
+    avatar: str = Field(default="", max_length=512, nullable=False)
+    description: str = Field(default="", max_length=1000, nullable=False)
+    persona: str = Field(default="", max_length=20000, nullable=False)
+    greeting: str = Field(default="", max_length=4000, nullable=False)
+    chat_provider_id: int | None = Field(default=None, index=True)
+    speech_provider_id: int | None = Field(default=None, index=True)
+    image_provider_id: int | None = Field(default=None, index=True)
+    enabled: bool = Field(default=True, nullable=False)

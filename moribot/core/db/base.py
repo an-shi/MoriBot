@@ -12,7 +12,7 @@ from sqlalchemy import event, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 
-from .models import MobileDevice, MobilePairingCode, ModelProvider, User, utcnow
+from .models import CharacterCard, MobileDevice, MobilePairingCode, ModelProvider, User, utcnow
 
 
 class BaseDatabase(abc.ABC):
@@ -199,6 +199,40 @@ class BaseDatabase(abc.ABC):
         ok: bool,
         message: str,
     ) -> None:
+        raise NotImplementedError
+
+    # -- Character cards --------------------------------------------------
+
+    @abc.abstractmethod
+    async def list_character_cards(self) -> list[CharacterCard]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_character_card(self, character_id: int) -> CharacterCard | None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_character_card_by_name(self, name: str) -> CharacterCard | None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def create_character_card(self, values: dict[str, Any]) -> CharacterCard:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def update_character_card(
+        self,
+        character_id: int,
+        values: dict[str, Any],
+    ) -> CharacterCard | None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def delete_character_card(self, character_id: int) -> bool:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def clear_character_provider_refs(self, provider_id: int) -> None:
         raise NotImplementedError
 
     async def _count_users(self) -> int:

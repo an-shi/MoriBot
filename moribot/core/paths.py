@@ -51,6 +51,7 @@ class AppPaths:
     log_dir: Path
     db_file: Path
     plugin_dir: Path
+    avatar_dir: Path
     webui_dist: Path | None
 
     @classmethod
@@ -90,10 +91,11 @@ class AppPaths:
             log_dir=resolved_data / "logs",
             db_file=resolved_data / "moribot.db",
             plugin_dir=resolved_data / "plugins",
+            avatar_dir=resolved_data / "avatars",
             webui_dist=_resolve_webui_dir(root),
         )
 
     def ensure(self) -> None:
         """Create every directory required at runtime."""
-        for directory in (self.data_dir, self.log_dir, self.plugin_dir):
+        for directory in (self.data_dir, self.log_dir, self.plugin_dir, self.avatar_dir):
             directory.mkdir(parents=True, exist_ok=True)

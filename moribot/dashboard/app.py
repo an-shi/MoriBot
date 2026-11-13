@@ -32,6 +32,7 @@ from .rate_limit import LoginRateLimiter
 from .responses import error
 from .routes import API_V1_PREFIX, api_router
 from .services.auth_service import AuthService
+from .services.character_service import CharacterService
 from .services.mobile_service import MobileService
 from .services.model_health import ModelHealthScheduler
 from .services.provider_service import ProviderConfigService
@@ -117,6 +118,7 @@ def create_app(
         lifecycle.mobile_adapter,
     )
     provider_service = ProviderConfigService(lifecycle)
+    character_service = CharacterService(lifecycle)
     health_scheduler = ModelHealthScheduler(resolved_config, provider_service)
 
     @asynccontextmanager
@@ -153,6 +155,7 @@ def create_app(
     app.state.auth_service = auth_service
     app.state.mobile_service = mobile_service
     app.state.provider_service = provider_service
+    app.state.character_service = character_service
     app.state.model_health_scheduler = health_scheduler
     app.state.login_limiter = LoginRateLimiter()
     app.state.mobile_limiter = LoginRateLimiter()
@@ -262,5 +265,10 @@ def create_app(
         )
 
     app.include_router(api_router)
+    app.mount(
+        "/avatars",
+        StaticFiles(directory=resolved_paths.avatar_dir),
+        name="character-avatars",
+    )
     _register_dashboard(app, resolved_paths.webui_dist)
     return app
