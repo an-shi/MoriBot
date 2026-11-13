@@ -220,28 +220,18 @@ def _filter_models(
     return models if fallback_to_all else []
 
 
-def _minimax_media_models(category: str) -> list[ModelInfo]:
-    """MiniMax's /models endpoint only lists chat models.
-
-    Speech and image endpoints are documented separately, so fall back to the
-    curated official model IDs when the live list has no media models.
-    """
-    from .catalog import PROVIDER_PRESETS
-
-    for preset in PROVIDER_PRESETS:
-        if preset.id not in {"minimax", "minimax-cn"}:
-            continue
-        model_ids = preset.models.get(category, ())
-        return [
-            ModelInfo(
-                id=model_id,
-                name=model_id,
-                capabilities=infer_capabilities(category, "minimax", model_id),
-                owned_by="minimax",
-            )
-            for model_id in model_ids
-        ]
-    return []
+def _fallback_models(category: str, model_ids: list[str]) -> list[ModelInfo]:
+    """Build models from a user-editable fallback list in config.json."""
+    return [
+        ModelInfo(
+            id=model_id,
+            name=model_id,
+            capabilities=infer_capabilities(category, "fallback", model_id),
+            owned_by="",
+        )
+        for model_id in model_ids
+        if isinstance(model_id, str) and model_id.strip()
+    ]
 
 
 def _openai_headers(api_key: str) -> dict[str, str]:
@@ -281,6 +271,7 @@ async def list_models(
     base_url: str,
     api_key: str,
     options: dict[str, Any] | None = None,
+    fallback_models: dict[str, list[str]] | None = None,
 ) -> list[ModelInfo]:
     """Fetch and normalize a provider's model list."""
     options = options or {}
@@ -410,5 +401,8 @@ async def list_models(
             provider_type=provider_type,
             fallback_to_all=False,
         )
-        return relevant or _minimax_media_models(category)
+        if relevant:
+            return relevant
+        fallback_ids = (fallback_models or {}).get(category, [])
+        return _fallback_models(category, fallback_ids)
     return _filter_models(category, models, provider_type=provider_type)

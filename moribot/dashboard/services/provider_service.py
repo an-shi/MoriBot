@@ -83,6 +83,7 @@ class ProviderConfigService:
                 base_url=base_url,
                 api_key=api_key,
                 options=payload.options,
+                fallback_models=self._media_model_fallbacks(provider_type),
             )
         except Exception as exc:
             detail = str(exc)[:300]
@@ -370,6 +371,23 @@ class ProviderConfigService:
         ]
         if candidates:
             await self.db.set_default_model_provider(category, candidates[0].id)
+
+    def _media_model_fallbacks(self, provider_type: str) -> dict[str, list[str]]:
+        """Read user-editable media model fallbacks from config.json."""
+        raw = self.core.config.get("provider.media_model_fallbacks", {})
+        if not isinstance(raw, dict):
+            return {}
+        provider_fallbacks = raw.get(provider_type)
+        if not isinstance(provider_fallbacks, dict):
+            return {}
+        result: dict[str, list[str]] = {}
+        for category, values in provider_fallbacks.items():
+            if not isinstance(values, list):
+                continue
+            result[str(category)] = [
+                str(value) for value in values if str(value).strip()
+            ]
+        return result
 
     @staticmethod
     def _normalize_capabilities(value: dict) -> dict:

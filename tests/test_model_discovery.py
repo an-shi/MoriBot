@@ -202,6 +202,10 @@ def test_discovery_filters_retired_minimax_models_and_falls_back_for_media():
                 category="speech",
                 base_url=base_url,
                 api_key="test",
+                fallback_models={
+                    "speech": ["speech-2.8-turbo", "speech-2.8-hd"],
+                    "image": ["MiniMax-H3-Image", "MiniMax-H3-Image-Highspeed"],
+                },
             )
             assert {model.id for model in speech} == {
                 "speech-2.8-turbo",
@@ -214,6 +218,10 @@ def test_discovery_filters_retired_minimax_models_and_falls_back_for_media():
                 category="image",
                 base_url=base_url,
                 api_key="test",
+                fallback_models={
+                    "speech": ["speech-2.8-turbo", "speech-2.8-hd"],
+                    "image": ["MiniMax-H3-Image", "MiniMax-H3-Image-Highspeed"],
+                },
             )
             assert {model.id for model in image} == {
                 "MiniMax-H3-Image",

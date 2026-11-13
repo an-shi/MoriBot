@@ -42,6 +42,18 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "provider": {
         "default_chat_provider_id": "",
+        # Vendors such as MiniMax do not list speech/image models through
+        # /models. These fallbacks can be edited in config.json without a code
+        # change. Shape: {provider_type: {category: [model_id, ...]}}.
+        "media_model_fallbacks": {
+            "minimax": {
+                "speech": ["speech-2.8-turbo", "speech-2.8-hd"],
+                "image": [
+                    "MiniMax-H3-Image",
+                    "MiniMax-H3-Image-Highspeed",
+                ],
+            },
+        },
     },
     "platform": {},
     "mobile": {

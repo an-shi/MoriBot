@@ -198,7 +198,13 @@ uv run main.py
     "cors_origins": ["http://localhost:5173", "http://127.0.0.1:5173"]
   },
   "provider": {
-    "default_chat_provider_id": ""
+    "default_chat_provider_id": "",
+    "media_model_fallbacks": {
+      "minimax": {
+        "speech": ["speech-2.8-turbo", "speech-2.8-hd"],
+        "image": ["MiniMax-H3-Image", "MiniMax-H3-Image-Highspeed"]
+      }
+    }
   },
   "platform": {},
   "mobile": {
@@ -207,6 +213,8 @@ uv run main.py
   }
 }
 ```
+
+`provider.media_model_fallbacks` 用于 MiniMax 这类 `/models` 不返回语音/图片模型的供应商。后续模型更新时直接修改该配置并重启即可，不需要改代码。
 
 常用环境变量（可放在项目根目录的 `.env`）：
 
