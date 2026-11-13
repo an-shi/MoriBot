@@ -1,6 +1,6 @@
 # MoriBot 架构说明
 
-本文描述 MoriBot v0.1.0 的基础架构。MoriBot 是 [MoriMobile](https://github.com/an-shi/MoriAI-mobile) 的配套后台，产品范围不包含 QQ、Telegram、Discord 等第三方 IM 接入。设计目标不是复刻 AstrBot 的全部功能，而是借鉴它「核心生命周期 + 事件总线 + 管道 + 模型抽象 + 插件」的分层方式，先建立一个可以持续生长的骨架。
+本文描述 MoriBot v0.1.0 的基础架构。MoriBot 是 [MoriMobile](https://github.com/an-shi/MoriMobile) 的配套后台，产品范围不包含 QQ、Telegram、Discord 等第三方 IM 接入。设计目标不是复刻 AstrBot 的全部功能，而是借鉴它「核心生命周期 + 事件总线 + 管道 + 模型抽象 + 插件」的分层方式，先建立一个可以持续生长的骨架。
 
 ## 1. 设计原则
 

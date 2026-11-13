@@ -1,6 +1,6 @@
 # MoriBot
 
-MoriBot 是一个受 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 架构启发的 **AI 助手后台控制器**，并与官方手机端 [MoriMobile](https://github.com/an-shi/MoriAI-mobile) 配套使用。它把「模型服务 / 消息管道 / 插件扩展 / MoriMobile 通信」拆成清晰的模块，用一个统一的 Web 控制台管理智能体。
+MoriBot 是一个受 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 架构启发的 **AI 助手后台控制器**，并与官方手机端 [MoriMobile](https://github.com/an-shi/MoriMobile) 配套使用。它把「模型服务 / 消息管道 / 插件扩展 / MoriMobile 通信」拆成清晰的模块，用一个统一的 Web 控制台管理智能体。
 
 MoriBot 的产品目标不是做多平台聊天机器人网关，**不计划接入 QQ、Telegram、Discord 等第三方 IM**。手机端只支持 MoriMobile。
 
@@ -8,7 +8,7 @@ MoriBot 的产品目标不是做多平台聊天机器人网关，**不计划接�
 
 - 可扩展的核心生命周期与依赖装配
 - 异步事件总线 + 洋葱模型消息管道
-- 以 [MoriMobile](https://github.com/an-shi/MoriAI-mobile) 为唯一官方手机客户端
+- 以 [MoriMobile](https://github.com/an-shi/MoriMobile) 为唯一官方手机客户端
 - 内建 MoriMobile 安全网关：设备配对、设备令牌、WebSocket 上下行、设备撤销
 - MoriMobile 业务接口走 HTTPS JSON API，实时聊天走加密 WSS
 - 三类模型配置：主模型 / 语音模型 / 图片模型
@@ -136,7 +136,7 @@ pnpm build
 
 ### 4. 连接 MoriMobile
 
-MoriMobile 官方仓库：[an-shi/MoriAI-mobile](https://github.com/an-shi/MoriAI-mobile)
+MoriMobile 官方仓库：[an-shi/MoriMobile](https://github.com/an-shi/MoriMobile)
 
 1. 登录后台，点击首页右上角「连接 MoriMobile」。
 2. 点击「生成配对码」，得到 8 位配对码和 `morimobile://` 配对链接。

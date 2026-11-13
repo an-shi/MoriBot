@@ -1,6 +1,6 @@
 # MoriMobile 网关设计
 
-MoriMobile 是 MoriBot 的官方手机客户端，仓库：[an-shi/MoriAI-mobile](https://github.com/an-shi/MoriAI-mobile)。本仓库只包含服务端后台，不包含手机 App。MoriBot 不计划接入 QQ、Telegram、Discord 等第三方 IM。
+MoriMobile 是 MoriBot 的官方手机客户端，仓库：[an-shi/MoriMobile](https://github.com/an-shi/MoriMobile)。本仓库只包含服务端后台，不包含手机 App。MoriBot 不计划接入 QQ、Telegram、Discord 等第三方 IM。
 
 目标是在手机不处于家庭局域网、家庭服务器位于 NAT 后面时，仍然可以双向传递消息，并为手机提供常规业务接口。
 

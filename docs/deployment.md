@@ -142,7 +142,7 @@ uv run main.py \
 
 ## 5. MoriMobile 网络方向
 
-MoriBot 只与官方手机客户端 [MoriMobile](https://github.com/an-shi/MoriAI-mobile) 配套，不计划接入 QQ、Telegram、Discord 等第三方 IM。手机端的常规业务走 HTTPS JSON API，只有实时聊天和推送走 WSS：
+MoriBot 只与官方手机客户端 [MoriMobile](https://github.com/an-shi/MoriMobile) 配套，不计划接入 QQ、Telegram、Discord 等第三方 IM。手机端的常规业务走 HTTPS JSON API，只有实时聊天和推送走 WSS：
 
 ```text
 MoriMobile ── HTTPS JSON ──► MoriBot /api/v1/mobile/app/*   业务/历史/设置
