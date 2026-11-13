@@ -198,27 +198,12 @@ async function save(): Promise<void> {
           <div class="avatar-preview" :class="{ 'avatar-preview--empty': !avatar }">
             <img v-if="avatar" :src="avatar" :alt="name || t('characters.avatar')" />
             <span v-else>{{ avatarInitial }}</span>
-            <div class="avatar-actions">
+            <div v-if="avatar" class="avatar-actions">
               <v-btn
                 icon
                 size="x-small"
                 variant="flat"
                 color="white"
-                :loading="avatarUploading"
-                :aria-label="t('characters.avatarUpload')"
-                @click.stop="triggerAvatarUpload"
-              >
-                <v-icon size="16">mdi-upload</v-icon>
-                <v-tooltip activator="parent" location="top">
-                  {{ t('characters.avatarUpload') }}
-                </v-tooltip>
-              </v-btn>
-              <v-btn
-                icon
-                size="x-small"
-                variant="flat"
-                color="white"
-                :disabled="!avatar"
                 :aria-label="t('characters.avatarPreview')"
                 @click.stop="previewOpen = true"
               >
@@ -241,7 +226,16 @@ async function save(): Promise<void> {
             <p class="avatar-state">
               {{ avatar ? name || t('characters.avatar') : t('characters.avatarEmpty') }}
             </p>
-            <p class="field-hint">{{ t('characters.avatarHoverHint') }}</p>
+            <v-btn
+              variant="tonal"
+              size="small"
+              prepend-icon="mdi-upload"
+              :loading="avatarUploading"
+              class="avatar-upload-button"
+              @click="triggerAvatarUpload"
+            >
+              {{ t('characters.avatarUpload') }}
+            </v-btn>
             <p class="field-hint">{{ t('characters.avatarHint') }}</p>
           </div>
         </div>
@@ -462,6 +456,15 @@ async function save(): Promise<void> {
   color: var(--mori-text);
   font-size: 12px;
   font-weight: 600;
+}
+
+.avatar-upload-button {
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
+.avatar-fields .field-hint {
+  margin-top: 2px;
 }
 
 .avatar-fields label,

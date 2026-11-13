@@ -165,7 +165,6 @@ export default {
     avatarUpload: 'Upload avatar',
     avatarPreview: 'Preview avatar',
     avatarEmpty: 'No avatar uploaded',
-    avatarHoverHint: 'Hover over the avatar to upload or preview it.',
     avatarHint: 'PNG / JPEG / WebP / GIF up to 2 MB. The upload returns a URL automatically.',
     avatarTooLarge: 'Avatar must be smaller than 2 MB',
     avatarUploadFailed: 'Failed to upload avatar',

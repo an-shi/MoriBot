@@ -163,7 +163,6 @@ export default {
     avatarUpload: '上传头像',
     avatarPreview: '预览头像',
     avatarEmpty: '尚未上传头像',
-    avatarHoverHint: '鼠标悬浮头像可上传或预览。',
     avatarHint: '支持 PNG / JPEG / WebP / GIF，最大 2 MB；上传后自动生成可访问 URL。',
     avatarTooLarge: '头像不能超过 2 MB',
     avatarUploadFailed: '头像上传失败',
