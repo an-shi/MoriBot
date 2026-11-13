@@ -30,6 +30,12 @@ const router = createRouter({
           component: () => import('@/views/ProvidersPage.vue'),
           meta: { titleKey: 'nav.providers', requiresAuth: true },
         },
+        {
+          path: 'settings',
+          name: 'settings',
+          component: () => import('@/views/SystemSettingsPage.vue'),
+          meta: { titleKey: 'nav.settings', requiresAuth: true },
+        },
       ],
     },
     {

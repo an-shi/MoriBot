@@ -26,7 +26,7 @@ const navItems: NavItem[] = [
   { labelKey: 'nav.platforms', icon: 'mdi-cellphone-link', available: false },
   { labelKey: 'nav.plugins', icon: 'mdi-puzzle-outline', available: false },
   { labelKey: 'nav.logs', icon: 'mdi-text-box-outline', available: false },
-  { labelKey: 'nav.settings', icon: 'mdi-cog-outline', available: false },
+  { labelKey: 'nav.settings', icon: 'mdi-cog-outline', to: '/settings', available: true },
 ]
 
 const route = useRoute()

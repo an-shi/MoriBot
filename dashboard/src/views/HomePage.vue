@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { extractErrorMessage } from '@/api/http'
+import { providersApi } from '@/api/providers'
 import { systemApi } from '@/api/system'
 import MobilePairingDialog from '@/components/MobilePairingDialog.vue'
 import MoriLogo from '@/components/MoriLogo.vue'
 import { APP_VERSION } from '@/config'
 import { useAuthStore } from '@/stores/auth'
 import { useSystemStore } from '@/stores/system'
-import { formatUptime } from '@/utils/format'
+import type { ModelProvider, ProviderCategory } from '@/types/api'
+import { formatDateTime, formatUptime } from '@/utils/format'
 
 const system = useSystemStore()
 const auth = useAuthStore()
@@ -18,6 +20,60 @@ const { t, locale } = useI18n()
 const mobileDialogOpen = ref(false)
 const exporting = ref(false)
 const snackbar = ref({ show: false, message: '', color: 'success' })
+
+const providers = ref<ModelProvider[]>([])
+const providersLoading = ref(true)
+const providersError = ref('')
+let refreshTimer: number | undefined
+
+const categoryIcons: Record<ProviderCategory, string> = {
+  chat: 'mdi-robot-outline',
+  speech: 'mdi-volume-high',
+  image: 'mdi-image-outline',
+}
+
+const healthSummary = computed(() => {
+  const total = providers.value.length
+  const available = providers.value.filter((provider) => provider.last_test_ok === true).length
+  const failed = providers.value.filter((provider) => provider.last_test_ok === false).length
+  return { total, available, failed, untested: total - available - failed }
+})
+
+function healthState(provider: ModelProvider): 'available' | 'unavailable' | 'untested' {
+  if (provider.last_test_ok === null) {
+    return 'untested'
+  }
+  return provider.last_test_ok ? 'available' : 'unavailable'
+}
+
+function healthLabel(provider: ModelProvider): string {
+  return t(`home.health.${healthState(provider)}`)
+}
+
+function healthTime(provider: ModelProvider): string {
+  if (!provider.last_tested_at) {
+    return t('home.health.neverChecked')
+  }
+  return t('home.health.checkedAt', {
+    time: formatDateTime(provider.last_tested_at, locale.value, t('home.health.neverChecked')),
+  })
+}
+
+async function loadProviders(silent = false): Promise<void> {
+  if (!silent) {
+    providersLoading.value = true
+  }
+  providersError.value = ''
+  try {
+    providers.value = await providersApi.list()
+  } catch (error) {
+    providersError.value = `${t('home.health.loadFailed')}: ${extractErrorMessage(error)}`
+  } finally {
+    if (!silent) {
+      providersLoading.value = false
+    }
+  }
+}
 
 const displayName = computed(
   () => auth.user?.display_name || auth.user?.username || t('layout.roleAdmin'),
@@ -51,6 +107,21 @@ async function exportData(): Promise<void> {
     exporting.value = false
   }
 }
+
+onMounted(() => {
+  void loadProviders()
+  refreshTimer = window.setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      void loadProviders(true)
+    }
+  }, 60000)
+})
+
+onUnmounted(() => {
+  if (refreshTimer !== undefined) {
+    window.clearInterval(refreshTimer)
+  }
+})
 </script>
 
 <template>
@@ -98,6 +169,92 @@ async function exportData(): Promise<void> {
       <div class="runtime-item">
         <span class="runtime-label">{{ t('home.mobileOnline') }}</span>
         <strong>{{ system.info?.mobile_online ?? 0 }}</strong>
+      </div>
+    </section>
+
+    <section class="model-health" :aria-label="t('home.modelHealth')">
+      <header class="health-head">
+        <div>
+          <p class="mori-eyebrow">MODEL HEALTH</p>
+          <h2>{{ t('home.modelHealth') }}</h2>
+          <p class="health-subtitle">{{ t('home.modelHealthDesc') }}</p>
+        </div>
+        <div class="health-actions">
+          <span class="health-summary">
+            {{
+              t('home.health.summary', {
+                total: healthSummary.total,
+                available: healthSummary.available,
+                failed: healthSummary.failed,
+                untested: healthSummary.untested,
+              })
+            }}
+          </span>
+          <v-btn
+            variant="text"
+            size="small"
+            prepend-icon="mdi-refresh"
+            :loading="providersLoading"
+            @click="loadProviders()"
+          >
+            {{ t('home.health.refresh') }}
+          </v-btn>
+        </div>
+      </header>
+
+      <v-alert
+        v-if="providersError"
+        type="error"
+        variant="tonal"
+        density="compact"
+        class="health-alert"
+      >
+        {{ providersError }}
+      </v-alert>
+
+      <div v-if="!providersLoading && providers.length === 0" class="health-empty">
+        <span class="health-empty-icon"><v-icon size="22">mdi-heart-pulse</v-icon></span>
+        <div>
+          <h3>{{ t('home.health.noProviders') }}</h3>
+          <p>{{ t('home.health.noProvidersDesc') }}</p>
+        </div>
+        <router-link to="/providers" class="health-link">
+          {{ t('home.health.manageProviders') }}
+          <v-icon size="14">mdi-arrow-right</v-icon>
+        </router-link>
+      </div>
+
+      <div v-else-if="providers.length" class="health-grid">
+        <article
+          v-for="provider in providers"
+          :key="provider.id"
+          class="health-card"
+          :class="`health-card--${healthState(provider)}`"
+        >
+          <header class="health-card-head">
+            <span class="health-category">
+              <v-icon size="16">{{ categoryIcons[provider.category] }}</v-icon>
+              {{ t(`providers.categories.${provider.category}.title`) }}
+            </span>
+            <span class="health-state">
+              <i />
+              {{ healthLabel(provider) }}
+            </span>
+          </header>
+          <h3>{{ provider.name }}</h3>
+          <p class="health-model">{{ provider.model }}</p>
+          <p v-if="provider.last_test_message" class="health-message">
+            {{ provider.last_test_message }}
+          </p>
+          <footer class="health-card-foot">
+            <span>{{ healthTime(provider) }}</span>
+            <v-icon v-if="provider.is_default" size="14">mdi-star</v-icon>
+          </footer>
+        </article>
+      </div>
+      <div v-else class="health-loading">
+        <v-progress-circular indeterminate size="20" width="2" />
+        {{ t('home.health.loading') }}
       </div>
     </section>
 
@@ -282,6 +439,216 @@ async function exportData(): Promise<void> {
   text-overflow: ellipsis;
 }
 
+.model-health {
+  margin-bottom: 22px;
+  padding: 20px;
+  border: 1px solid var(--mori-line);
+  border-radius: 18px;
+  background: var(--mori-panel);
+}
+
+.health-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 22px;
+}
+
+.health-head h2 {
+  margin: 9px 0 0;
+  color: var(--mori-text);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.health-subtitle {
+  margin: 6px 0 0;
+  color: var(--mori-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.health-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.health-summary {
+  padding: 6px 10px;
+  border: 1px solid var(--mori-line);
+  border-radius: 999px;
+  color: var(--mori-muted);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.health-alert {
+  margin-top: 14px;
+  border-radius: 12px;
+}
+
+.health-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px dashed var(--mori-line-strong);
+  border-radius: 14px;
+}
+
+.health-empty-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--mori-panel-2);
+  color: var(--mori-muted);
+}
+
+.health-empty h3 {
+  margin: 0;
+  color: var(--mori-text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.health-empty p {
+  margin: 4px 0 0;
+  color: var(--mori-muted);
+  font-size: 10.5px;
+}
+
+.health-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  color: var(--mori-mint);
+  font-size: 11px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.health-card {
+  position: relative;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--mori-line);
+  border-radius: 14px;
+  background: var(--mori-panel-2);
+}
+
+.health-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.health-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--mori-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.health-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--mori-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.health-state i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--mori-muted);
+}
+
+.health-card--available .health-state {
+  color: var(--mori-mint);
+}
+
+.health-card--available .health-state i {
+  background: var(--mori-mint);
+}
+
+.health-card--unavailable .health-state {
+  color: rgb(var(--v-theme-error));
+}
+
+.health-card--unavailable .health-state i {
+  background: rgb(var(--v-theme-error));
+}
+
+.health-card h3 {
+  margin: 12px 0 0;
+  overflow: hidden;
+  color: var(--mori-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.health-model {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--mori-muted);
+  font-family: var(--mori-font-mono, monospace);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.health-message {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 8px 0 0;
+  color: var(--mori-muted);
+  font-size: 10px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.health-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--mori-muted);
+  font-size: 9.5px;
+}
+
+.health-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  color: var(--mori-muted);
+  font-size: 11px;
+}
+
 .canvas {
   position: relative;
   display: grid;
@@ -434,6 +801,16 @@ async function exportData(): Promise<void> {
 
   .runtime-item:nth-child(-n + 2) {
     border-bottom: 1px solid var(--mori-line);
+  }
+
+  .health-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .health-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .canvas {

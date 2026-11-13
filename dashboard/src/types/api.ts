@@ -38,6 +38,24 @@ export interface SystemInfo {
   python_version: string
 }
 
+export interface HealthCheckSettings {
+  enabled: boolean
+  times: string[]
+  last_runs: Record<string, string>
+}
+
+export interface SystemSettings {
+  health_check: HealthCheckSettings
+  server_time: string
+  timezone: string
+}
+
+export interface ModelHealthRunResult {
+  checked: number
+  available: number
+  failed: number
+}
+
 export interface PairingCode {
   code: string
   expires_at: string
