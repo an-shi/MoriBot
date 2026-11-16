@@ -29,6 +29,7 @@ from ..deps import (
 )
 from ..responses import ApiResponse, ok
 from ..schemas import (
+    DiarySettingsOut,
     HealthCheckSettings,
     HealthInfo,
     LogEntryOut,
@@ -74,11 +75,20 @@ def _settings_response(config) -> SystemSettingsOut:
         else {}
     )
     now = datetime.now().astimezone()
+    diary_raw = config.get("diary", {})
+    diary_raw = diary_raw if isinstance(diary_raw, dict) else {}
+    diary_time = str(diary_raw.get("time", "23:30")).strip()
+    if not _TIME_RE.fullmatch(diary_time):
+        diary_time = "23:30"
     return SystemSettingsOut(
         health_check=HealthCheckSettings(
             enabled=bool(raw.get("enabled", False)),
             times=times,
             last_runs=last_runs,
+        ),
+        diary=DiarySettingsOut(
+            enabled=bool(diary_raw.get("enabled", False)),
+            time=diary_time,
         ),
         server_time=now.strftime("%Y-%m-%d %H:%M"),
         timezone=now.tzname() or "",
@@ -160,6 +170,12 @@ async def update_system_settings(
             "provider.health_check.last_runs",
             {str(key): str(value) for key, value in raw_runs.items() if str(key) in times},
         )
+    if payload.diary is not None:
+        diary_time = payload.diary.time.strip()
+        if not _TIME_RE.fullmatch(diary_time):
+            raise MoriError(translate("settings.invalid_time", locale, value=diary_time))
+        config.set("diary.enabled", payload.diary.enabled)
+        config.set("diary.time", diary_time)
     config.save()
     return ok(_settings_response(config), message=translate("settings.saved", locale))
 

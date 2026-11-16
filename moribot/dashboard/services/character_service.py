@@ -28,6 +28,7 @@ _AVATAR_EXTENSIONS = {
     "image/gif": ".gif",
 }
 _MAX_AVATAR_BYTES = 2 * 1024 * 1024
+_DIARY_TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
 class CharacterService:
@@ -59,6 +60,7 @@ class CharacterService:
         values = payload.model_dump()
         values["name"] = name
         values["avatar"] = self._validate_avatar(values.get("avatar", ""), locale)
+        values["diary_time"] = self._normalize_diary_time(values.get("diary_time"), locale)
         for category, key in (
             ("chat", "chat_provider_id"),
             ("speech", "speech_provider_id"),
@@ -92,6 +94,8 @@ class CharacterService:
         for key in ("avatar", "description", "persona"):
             if key in values and values[key] is None:
                 values[key] = ""
+        if "diary_time" in values:
+            values["diary_time"] = self._normalize_diary_time(values["diary_time"], locale)
         if "avatar" in values:
             values["avatar"] = self._validate_avatar(values["avatar"], locale)
         if values.get("enabled") is None:
@@ -157,6 +161,17 @@ class CharacterService:
             raise MoriError(translate("character.invalid_name", locale))
         return name
 
+    @staticmethod
+    def _normalize_diary_time(value: str | None, locale: str) -> str | None:
+        if value is None:
+            return None
+        time = value.strip()
+        if not time:
+            return None
+        if not _DIARY_TIME_RE.fullmatch(time):
+            raise MoriError(translate("character.invalid_diary_time", locale))
+        return time
+
     def _validate_avatar(self, avatar: str, locale: str) -> str:
         avatar = (avatar or "").strip()
         if not avatar:
@@ -205,6 +220,8 @@ class CharacterService:
             chat_provider_id=record.chat_provider_id,
             speech_provider_id=record.speech_provider_id,
             image_provider_id=record.image_provider_id,
+            diary_enabled=record.diary_enabled,
+            diary_time=record.diary_time,
             enabled=record.enabled,
             created_at=record.created_at,
             updated_at=record.updated_at,

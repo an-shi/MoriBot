@@ -11,6 +11,7 @@ from sqlmodel import select
 from .base import BaseDatabase
 from .models import (
     CharacterCard,
+    CharacterDiary,
     Conversation,
     ConversationMessage,
     MobileDevice,
@@ -49,6 +50,14 @@ class SQLiteDatabase(BaseDatabase):
             character_columns = {row[1] for row in result.fetchall()}
             if "greeting" in character_columns:
                 await connection.exec_driver_sql("ALTER TABLE character_cards DROP COLUMN greeting")
+            if "diary_enabled" not in character_columns:
+                await connection.exec_driver_sql(
+                    "ALTER TABLE character_cards ADD COLUMN diary_enabled BOOLEAN"
+                )
+            if "diary_time" not in character_columns:
+                await connection.exec_driver_sql(
+                    "ALTER TABLE character_cards ADD COLUMN diary_time VARCHAR(5)"
+                )
 
     async def count_users(self) -> int:
         return await self._count_users()
@@ -555,3 +564,110 @@ class SQLiteDatabase(BaseDatabase):
             await session.refresh(assistant_message)
             await session.refresh(conversation)
             return user_message, assistant_message, conversation
+
+    # -- Character diaries ------------------------------------------------
+
+    async def list_character_diaries(
+        self,
+        character_id: int | None = None,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[CharacterDiary]:
+        async with self.session() as session:
+            statement = select(CharacterDiary)
+            if character_id is not None:
+                statement = statement.where(CharacterDiary.character_id == character_id)
+            statement = (
+                statement.order_by(
+                    CharacterDiary.date.desc(),
+                    CharacterDiary.created_at.desc(),
+                )
+                .offset(max(0, offset))
+                .limit(max(1, limit))
+            )
+            result = await session.execute(statement)
+            return list(result.scalars().all())
+
+    async def get_character_diary(
+        self,
+        character_id: int,
+        date: str,
+    ) -> CharacterDiary | None:
+        async with self.session() as session:
+            result = await session.execute(
+                select(CharacterDiary)
+                .where(
+                    CharacterDiary.character_id == character_id,
+                    CharacterDiary.date == date,
+                )
+                .limit(1)
+            )
+            return result.scalar_one_or_none()
+
+    async def get_character_diary_by_id(self, diary_id: int) -> CharacterDiary | None:
+        async with self.session() as session:
+            return await session.get(CharacterDiary, diary_id)
+
+    async def upsert_character_diary(self, values: dict) -> CharacterDiary:
+        character_id = int(values["character_id"])
+        date = str(values["date"])
+        async with self.session() as session:
+            result = await session.execute(
+                select(CharacterDiary)
+                .where(
+                    CharacterDiary.character_id == character_id,
+                    CharacterDiary.date == date,
+                )
+                .limit(1)
+            )
+            diary = result.scalar_one_or_none()
+            if diary is None:
+                diary = CharacterDiary(**values)
+                session.add(diary)
+            else:
+                for key, value in values.items():
+                    setattr(diary, key, value)
+                self._touch(diary)
+                session.add(diary)
+            await session.flush()
+            await session.refresh(diary)
+            return diary
+
+    async def delete_character_diary(self, diary_id: int) -> bool:
+        async with self.session() as session:
+            diary = await session.get(CharacterDiary, diary_id)
+            if diary is None:
+                return False
+            await session.delete(diary)
+            return True
+
+    async def list_character_messages_between(
+        self,
+        character_id: int,
+        start: datetime,
+        end: datetime,
+        *,
+        limit: int = 200,
+    ) -> list[ConversationMessage]:
+        """Return the latest messages in a range, oldest-first."""
+        async with self.session() as session:
+            statement = (
+                select(ConversationMessage)
+                .join(
+                    Conversation,
+                    ConversationMessage.conversation_id == Conversation.id,
+                )
+                .where(
+                    Conversation.character_id == character_id,
+                    ConversationMessage.role.in_(("user", "assistant")),
+                    ConversationMessage.created_at >= start,
+                    ConversationMessage.created_at < end,
+                )
+                .order_by(ConversationMessage.id.desc())
+                .limit(max(1, limit))
+            )
+            result = await session.execute(statement)
+            rows = list(result.scalars().all())
+        rows.reverse()
+        return rows

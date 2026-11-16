@@ -74,4 +74,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_devices": 10,
         "pairing_code_ttl_minutes": 10,
     },
+    "diary": {
+        "enabled": False,
+        "time": "23:30",
+    },
 }

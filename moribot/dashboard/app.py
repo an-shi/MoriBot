@@ -33,6 +33,8 @@ from .responses import error
 from .routes import API_V1_PREFIX, api_router
 from .services.auth_service import AuthService
 from .services.character_service import CharacterService
+from .services.diary_scheduler import DiaryScheduler
+from .services.diary_service import DiaryService
 from .services.mobile_chat_service import MobileChatService
 from .services.mobile_service import MobileService
 from .services.model_health import ModelHealthScheduler
@@ -121,6 +123,8 @@ def create_app(
     provider_service = ProviderConfigService(lifecycle)
     character_service = CharacterService(lifecycle)
     mobile_chat_service = MobileChatService(lifecycle, character_service)
+    diary_service = DiaryService(lifecycle, resolved_config)
+    diary_scheduler = DiaryScheduler(diary_service)
     health_scheduler = ModelHealthScheduler(resolved_config, provider_service)
 
     @asynccontextmanager
@@ -129,6 +133,7 @@ def create_app(
             await lifecycle.initialize()
             await lifecycle.start()
             await health_scheduler.start()
+            await diary_scheduler.start()
             logger.info(
                 "{} v{} dashboard API ready at {}",
                 resolved_config.bot_name,
@@ -137,6 +142,7 @@ def create_app(
             )
             yield
         finally:
+            await diary_scheduler.stop()
             await health_scheduler.stop()
             await lifecycle.stop()
 
@@ -159,6 +165,7 @@ def create_app(
     app.state.provider_service = provider_service
     app.state.character_service = character_service
     app.state.mobile_chat_service = mobile_chat_service
+    app.state.diary_service = diary_service
     app.state.model_health_scheduler = health_scheduler
     app.state.login_limiter = LoginRateLimiter()
     app.state.mobile_limiter = LoginRateLimiter()

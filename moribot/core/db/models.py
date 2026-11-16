@@ -122,7 +122,32 @@ class CharacterCard(TimestampMixin, SQLModel, table=True):
     chat_provider_id: int | None = Field(default=None, index=True)
     speech_provider_id: int | None = Field(default=None, index=True)
     image_provider_id: int | None = Field(default=None, index=True)
+    diary_enabled: bool | None = Field(default=None)
+    diary_time: str | None = Field(default=None, max_length=5)
     enabled: bool = Field(default=True, nullable=False)
+
+
+class CharacterDiary(TimestampMixin, SQLModel, table=True):
+    """One diary entry written by a character for a local calendar day."""
+
+    __tablename__ = "character_diaries"
+    __table_args__ = (
+        UniqueConstraint(
+            "character_id",
+            "date",
+            name="uix_character_diary_character_date",
+        ),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    character_id: int = Field(index=True, nullable=False)
+    character_name: str = Field(default="", max_length=64)
+    character_avatar: str = Field(default="", max_length=512)
+    date: str = Field(max_length=10, index=True, nullable=False)
+    content: str = Field(default="", nullable=False)
+    provider_id: str = Field(default="", max_length=64)
+    model: str = Field(default="", max_length=128)
+    source_message_count: int = Field(default=0, nullable=False)
 
 
 class Conversation(TimestampMixin, SQLModel, table=True):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from . import auth, characters, mobile, providers, system
+from . import auth, characters, diaries, mobile, providers, system
 
 API_V1_PREFIX = "/api/v1"
 
@@ -14,5 +14,6 @@ api_router.include_router(system.router)
 api_router.include_router(mobile.router)
 api_router.include_router(providers.router)
 api_router.include_router(characters.router)
+api_router.include_router(diaries.router)
 
 __all__ = ["API_V1_PREFIX", "api_router"]

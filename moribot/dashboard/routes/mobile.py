@@ -25,6 +25,7 @@ from moribot.core.platform.mobile_adapter import MobileConnection
 from ..deps import (
     MobileAuthContext,
     get_current_user,
+    get_diary_service,
     get_locale,
     get_mobile_auth_context,
     get_mobile_chat_service,
@@ -34,6 +35,7 @@ from ..deps import (
 from ..rate_limit import LoginRateLimiter
 from ..responses import ApiResponse, ok
 from ..schemas import (
+    DiaryOut,
     MobileCharacterOut,
     MobileConversationCreate,
     MobileConversationOut,
@@ -50,6 +52,7 @@ from ..schemas import (
     PairingCodeOut,
     UserOut,
 )
+from ..services.diary_service import DiaryService
 from ..services.mobile_chat_service import MobileChatService
 from ..services.mobile_service import MobileService
 
@@ -230,6 +233,24 @@ async def mobile_conversations(
         await service.list_conversations(
             auth.user,
             character_id=character_id,
+            limit=limit,
+            offset=offset,
+        )
+    )
+
+
+@router.get("/app/diaries", response_model=ApiResponse[list[DiaryOut]])
+async def mobile_diaries(
+    character_id: int | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    _auth: MobileAuthContext = Depends(get_mobile_auth_context),
+    service: DiaryService = Depends(get_diary_service),
+) -> dict:
+    """List character diaries for the authenticated device."""
+    return ok(
+        await service.list_diaries(
+            character_id,
             limit=limit,
             offset=offset,
         )

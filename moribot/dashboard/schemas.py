@@ -61,8 +61,19 @@ class HealthCheckSettings(BaseModel):
     last_runs: dict[str, str] = Field(default_factory=dict)
 
 
+class DiarySettingsOut(BaseModel):
+    enabled: bool = False
+    time: str = "23:30"
+
+
+class DiarySettingsUpdate(BaseModel):
+    enabled: bool = False
+    time: str = "23:30"
+
+
 class SystemSettingsOut(BaseModel):
     health_check: HealthCheckSettings
+    diary: DiarySettingsOut = Field(default_factory=DiarySettingsOut)
     server_time: str = ""
     timezone: str = ""
 
@@ -74,6 +85,7 @@ class HealthCheckSettingsUpdate(BaseModel):
 
 class SystemSettingsUpdate(BaseModel):
     health_check: HealthCheckSettingsUpdate
+    diary: DiarySettingsUpdate | None = None
 
 
 class ModelHealthRunOut(BaseModel):
@@ -339,6 +351,8 @@ class CharacterCreateRequest(BaseModel):
     chat_provider_id: int | None = None
     speech_provider_id: int | None = None
     image_provider_id: int | None = None
+    diary_enabled: bool | None = None
+    diary_time: str | None = Field(default=None, max_length=5)
     enabled: bool = True
 
 
@@ -350,6 +364,8 @@ class CharacterUpdateRequest(BaseModel):
     chat_provider_id: int | None = None
     speech_provider_id: int | None = None
     image_provider_id: int | None = None
+    diary_enabled: bool | None = None
+    diary_time: str | None = Field(default=None, max_length=5)
     enabled: bool | None = None
 
 
@@ -362,6 +378,8 @@ class CharacterOut(BaseModel):
     chat_provider_id: int | None = None
     speech_provider_id: int | None = None
     image_provider_id: int | None = None
+    diary_enabled: bool | None = None
+    diary_time: str | None = None
     enabled: bool = True
     created_at: datetime
     updated_at: datetime
@@ -373,3 +391,22 @@ class CharacterAvatarUploadRequest(BaseModel):
 
 class CharacterAvatarOut(BaseModel):
     url: str
+
+
+class DiaryOut(BaseModel):
+    id: int
+    character_id: int
+    character_name: str = ""
+    character_avatar: str = ""
+    date: str
+    content: str
+    provider_id: str = ""
+    model: str = ""
+    source_message_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class DiaryGenerateRequest(BaseModel):
+    character_id: int
+    date: str | None = Field(default=None, max_length=10)

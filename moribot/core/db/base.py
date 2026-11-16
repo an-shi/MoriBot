@@ -14,6 +14,7 @@ from sqlmodel import SQLModel
 
 from .models import (
     CharacterCard,
+    CharacterDiary,
     Conversation,
     ConversationMessage,
     MobileDevice,
@@ -306,6 +307,49 @@ class BaseDatabase(abc.ABC):
         assistant_values: dict[str, Any],
         title: str = "",
     ) -> tuple[ConversationMessage, ConversationMessage, Conversation] | None:
+        raise NotImplementedError
+
+    # -- Character diaries ------------------------------------------------
+
+    @abc.abstractmethod
+    async def list_character_diaries(
+        self,
+        character_id: int | None = None,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[CharacterDiary]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_character_diary(
+        self,
+        character_id: int,
+        date: str,
+    ) -> CharacterDiary | None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_character_diary_by_id(self, diary_id: int) -> CharacterDiary | None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def upsert_character_diary(self, values: dict[str, Any]) -> CharacterDiary:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def delete_character_diary(self, diary_id: int) -> bool:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def list_character_messages_between(
+        self,
+        character_id: int,
+        start: datetime,
+        end: datetime,
+        *,
+        limit: int = 200,
+    ) -> list[ConversationMessage]:
         raise NotImplementedError
 
     async def _count_users(self) -> int:
