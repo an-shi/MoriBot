@@ -14,6 +14,7 @@ MoriBot 的产品目标不是做多平台聊天机器人网关，**不计划接�
 - MoriMobile 业务接口与角色对话走 HTTPS JSON API，服务端事件与推送走加密 WSS
 - 三类模型配置：主模型 / 语音模型 / 图片模型
 - 角色卡：名称、头像、人物设定，并可为每个角色单独覆盖三类模型
+- 角色日记：全局/角色级开关与时间，按当天对话自动生成，可在后台和 MoriMobile 查看
 - 兼容主流供应商：OpenAI、DeepSeek、通义千问、Kimi、智谱 GLM、豆包、SiliconFlow、OpenRouter、Groq、Mistral、xAI、Ollama 等 OpenAI 兼容端点
 - 原生适配 Anthropic Claude、Google Gemini、Azure OpenAI、ElevenLabs、MiniMax
 - 主模型通过工具调用语音与图片模型，在对话中生成语音和图片
@@ -84,6 +85,7 @@ MoriBot/
 │   ├── architecture.md
 │   ├── models.md               # 三类模型配置与工具调用
 │   ├── characters.md           # 角色卡与模型覆盖
+│   ├── diaries.md              # 角色日记与定时生成
 │   ├── logs.md                 # 系统日志与接口记录
 │   ├── deployment.md           # 公网部署与网络安全
 │   ├── morimobile.md           # 手机端配对、对话 API 与 WebSocket 协议
@@ -305,10 +307,14 @@ uv run main.py --host 127.0.0.1 --port 8080 --data-dir ./my-data
 | GET | `/api/v1/characters/{id}` | 是 | 获取角色卡 |
 | PATCH | `/api/v1/characters/{id}` | 是 | 更新角色卡 |
 | DELETE | `/api/v1/characters/{id}` | 是 | 删除角色卡 |
+| GET | `/api/v1/diaries` | 是 | 列出角色日记 |
+| POST | `/api/v1/diaries/generate` | 是 | 生成或重新生成一篇日记 |
+| DELETE | `/api/v1/diaries/{id}` | 是 | 删除一篇日记 |
 | POST | `/api/v1/mobile/pairing-code` | 是 | 生成一次性 MoriMobile 配对码 |
 | POST | `/api/v1/mobile/pair` | 否（配对码） | 手机兑换设备令牌 |
 | GET | `/api/v1/mobile/app/me` | 设备令牌 | 校验设备并返回设备/账户信息 |
 | GET | `/api/v1/mobile/app/characters` | 设备令牌 | 获取手机可用的角色卡 |
+| GET | `/api/v1/mobile/app/diaries` | 设备令牌 | 查看角色日记 |
 | GET | `/api/v1/mobile/app/conversations` | 设备令牌 | 列出账户的会话 |
 | POST | `/api/v1/mobile/app/conversations` | 设备令牌 | 创建绑定角色的会话 |
 | GET | `/api/v1/mobile/app/conversations/{id}` | 设备令牌 | 获取会话详情 |
@@ -453,6 +459,7 @@ pnpm build
 
 - [x] MoriMobile 配对、设备令牌、WebSocket 网关、设备撤销
 - [x] MoriMobile 对话桥接：角色卡、会话、消息与媒体持久化
+- [x] 角色日记：全局/角色级开关与时间、自动生成、后台与手机查看
 - [x] 会话与消息随数据目录导出 / 导入
 - [x] 数据导出 / 导入与完整性校验
 - [x] 中英文 i18n（默认中文）

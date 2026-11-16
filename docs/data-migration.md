@@ -122,6 +122,7 @@ data.pre-import-20261112-104500/
 - 模型 / 平台 / 系统配置
 - 三类模型配置及加密后的 API Key（依赖 `config.json` 中的 JWT 密钥解密）
 - 角色卡、人物设定、头像文件
+- 角色日记与全局/角色级日记设置（`character_diaries` + `config.json`）
 - MoriMobile 会话、消息和生成的语音/图片（`moribot.db` + `media/`）
 - 模型记忆与业务数据（未来写入数据库或 `data/` 后自动包含）
 - MoriMobile 已配对设备（设备令牌和哈希都在数据库中）

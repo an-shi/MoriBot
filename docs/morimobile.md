@@ -223,6 +223,43 @@ Authorization: Bearer mm_...
 - 人物设定 `persona` 不下发；服务端在生成回复时自动组装系统提示词。
 - 头像相对路径需要拼接配对时保存的服务端根地址。
 
+## 4.1 角色日记（只读）
+
+MoriMobile 可以查看 MoriBot 已生成的角色日记：
+
+```http
+GET /api/v1/mobile/app/diaries?character_id=1&limit=100&offset=0
+Authorization: Bearer mm_...
+```
+
+响应：
+
+```json
+{
+  "status": "ok",
+  "data": [
+    {
+      "id": 7,
+      "character_id": 1,
+      "character_name": "Mori",
+      "character_avatar": "/avatars/3f2a9c.png",
+      "date": "2026-11-16",
+      "content": "今天和对方聊了聊公园，心情很安静。",
+      "provider_id": "3",
+      "model": "gpt-4.1-mini",
+      "source_message_count": 4,
+      "created_at": "2026-11-16T23:30:00",
+      "updated_at": "2026-11-16T23:30:00"
+    }
+  ]
+}
+```
+
+- 手机端只读，不支持生成、编辑或删除。
+- `date` 是 MoriBot 服务器本地日期 `YYYY-MM-DD`。
+- 每篇日记包含角色名称和头像快照，角色删除后仍可查看历史。
+- 生成开关与时间在 MoriBot 后台配置；详见 [diaries.md](diaries.md)。
+
 ## 5. 会话
 
 会话属于账户，而不是单个设备。同一账户配对的多个设备可以看到同一份会话和消息。列表按最近活动时间（`updated_at`）倒序排列。

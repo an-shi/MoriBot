@@ -13,6 +13,8 @@
 | `chat_provider_id` | 对话主模型覆盖；`null` 表示跟随系统默认 |
 | `speech_provider_id` | 语音模型覆盖；`null` 表示跟随系统默认 |
 | `image_provider_id` | 图片模型覆盖；`null` 表示跟随系统默认 |
+| `diary_enabled` | 角色日记开关；`null` 跟随全局，`true` / `false` 单独覆盖 |
+| `diary_time` | 角色日记时间 `HH:MM`；`null` 跟随全局时间 |
 | `enabled` | 是否启用 |
 
 模型覆盖只接受对应类别的 Provider。例如 `chat_provider_id` 必须是 `chat` 类型，否则接口返回 400。
@@ -33,6 +35,20 @@ chat_provider_id != null 但对应 Provider 已停用或不存在
 删除 Provider 时，引用它的角色卡会自动把对应字段清空，回退到系统默认模型。角色卡的 `persona` 只在服务端组装系统提示词，不会下发给手机。
 
 删除角色卡不会级联删除历史会话。会话保留创建时的角色名称快照，`character_available` 变为 `false`，手机应禁用输入；用户仍可查看历史，或手动删除会话。
+
+角色卡也不会级联删除已经生成的日记；日记保存了角色名称和头像快照，仍可在后台和 MoriMobile 查看。删除角色后不再自动生成新日记。
+
+## 2.1 日记解析规则
+
+```text
+diary_enabled != null → 使用角色开关
+diary_enabled == null → 使用系统设置中的全局开关
+
+diary_time != null → 使用角色时间
+diary_time == null → 使用系统设置中的全局时间
+```
+
+角色时间必须是 `HH:MM`，否则接口返回 400。全局与角色级日记时间都使用 MoriBot 服务器本地时区。详见 [diaries.md](diaries.md)。
 
 ## 3. 头像
 
