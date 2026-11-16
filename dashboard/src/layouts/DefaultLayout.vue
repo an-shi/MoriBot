@@ -29,6 +29,7 @@ const navItems: NavItem[] = [
     available: true,
   },
   { labelKey: 'nav.diaries', icon: 'mdi-notebook-outline', to: '/diaries', available: true },
+  { labelKey: 'nav.memory', icon: 'mdi-memory', to: '/memory', available: true },
   { labelKey: 'nav.platforms', icon: 'mdi-cellphone-link', to: '/mobile', available: true },
   { labelKey: 'nav.plugins', icon: 'mdi-puzzle-outline', available: false },
   { labelKey: 'nav.logs', icon: 'mdi-text-box-outline', to: '/logs', available: true },

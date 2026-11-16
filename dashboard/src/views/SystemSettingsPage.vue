@@ -15,6 +15,8 @@ const times = ref<string[]>(['09:00'])
 const lastRuns = ref<Record<string, string>>({})
 const diaryEnabled = ref(false)
 const diaryTime = ref('23:30')
+const memoryEnabled = ref(true)
+const memoryAutoStart = ref(true)
 const serverTime = ref('')
 const timezone = ref('')
 const errorMessage = ref('')
@@ -53,6 +55,8 @@ async function loadSettings(): Promise<void> {
     lastRuns.value = settings.health_check.last_runs
     diaryEnabled.value = settings.diary.enabled
     diaryTime.value = settings.diary.time || '23:30'
+    memoryEnabled.value = settings.memory.enabled
+    memoryAutoStart.value = settings.memory.auto_start
     serverTime.value = settings.server_time
     timezone.value = settings.timezone
   } catch (error) {
@@ -79,6 +83,10 @@ async function saveSettings(): Promise<void> {
         enabled: diaryEnabled.value,
         time: diaryTime.value.trim() || '23:30',
       },
+      memory: {
+        enabled: memoryEnabled.value,
+        auto_start: memoryAutoStart.value,
+      },
     })
     enabled.value = settings.health_check.enabled
     times.value = settings.health_check.times.length
@@ -87,6 +95,8 @@ async function saveSettings(): Promise<void> {
     lastRuns.value = settings.health_check.last_runs
     diaryEnabled.value = settings.diary.enabled
     diaryTime.value = settings.diary.time || '23:30'
+    memoryEnabled.value = settings.memory.enabled
+    memoryAutoStart.value = settings.memory.auto_start
     serverTime.value = settings.server_time
     timezone.value = settings.timezone
     showSnackbar(t('settings.saved'), 'success')
@@ -267,6 +277,45 @@ onMounted(() => {
             class="time-input"
           />
           <p class="field-hint">{{ t('settings.diaryTimeHint') }}</p>
+        </div>
+        <div class="actions">
+          <v-spacer />
+          <v-btn color="primary" :loading="saving" :disabled="loading" @click="saveSettings">
+            {{ saving ? t('settings.saving') : t('settings.save') }}
+          </v-btn>
+        </div>
+      </div>
+    </section>
+
+    <section class="settings-card">
+      <div class="card-head">
+        <div class="card-title">
+          <span class="card-icon"><v-icon size="20">mdi-memory</v-icon></span>
+          <div>
+            <h2>{{ t('settings.memoryTitle') }}</h2>
+            <p>{{ t('settings.memoryDesc') }}</p>
+          </div>
+        </div>
+        <v-switch
+          v-model="memoryEnabled"
+          color="primary"
+          density="compact"
+          hide-details
+          :label="t('settings.memoryEnabled')"
+        />
+      </div>
+
+      <div class="settings-body">
+        <div class="field-block">
+          <v-switch
+            v-model="memoryAutoStart"
+            color="primary"
+            density="compact"
+            hide-details
+            :disabled="!memoryEnabled"
+            :label="t('settings.memoryAutoStart')"
+          />
+          <p class="field-hint">{{ t('settings.memoryAutoStartHint') }}</p>
         </div>
         <div class="actions">
           <v-spacer />

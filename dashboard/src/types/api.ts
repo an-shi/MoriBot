@@ -36,6 +36,18 @@ export interface SystemInfo {
   plugins: number
   mobile_online: number
   python_version: string
+  memory: MemoryStatus
+}
+
+export interface MemoryStatus {
+  enabled: boolean
+  running: boolean
+  owned: boolean
+  base_url: string
+  version: string
+  database_ok: boolean
+  fts5: boolean
+  error: string
 }
 
 export interface HealthCheckSettings {
@@ -49,9 +61,15 @@ export interface DiarySettings {
   time: string
 }
 
+export interface MemorySettings {
+  enabled: boolean
+  auto_start: boolean
+}
+
 export interface SystemSettings {
   health_check: HealthCheckSettings
   diary: DiarySettings
+  memory: MemorySettings
   server_time: string
   timezone: string
 }
