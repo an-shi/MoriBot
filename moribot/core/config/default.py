@@ -15,7 +15,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "log_level": "INFO",
     },
     "dashboard": {
-        "host": "127.0.0.1",
+        # Listen on all interfaces so phones on the same LAN can reach the
+        # dashboard and pairing API. Put a reverse proxy in front for public
+        # deployments and keep this value on loopback there if desired.
+        "host": "0.0.0.0",
         "port": 6186,
         # Generated on first start and persisted. Never ship a fixed secret.
         "jwt_secret": "",

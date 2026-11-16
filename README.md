@@ -109,7 +109,7 @@ uv run main.py
 3. 生成管理员账户 `admin` 和随机强密码
 4. 在启动日志中打印账号密码，同时写入 `data/initial_admin.txt`
 
-默认地址：`http://127.0.0.1:6186`  
+默认监听：`0.0.0.0:6186`。本机访问 `http://127.0.0.1:6186`；同一 Wi-Fi 下的手机或其他电脑使用 `http://<电脑局域网IP>:6186`。
 API 文档：`http://127.0.0.1:6186/api/docs`
 
 忘记密码时：
@@ -135,7 +135,7 @@ cd dashboard
 pnpm build
 ```
 
-构建产物位于 `dashboard/dist`。重新启动后端后，访问 `http://127.0.0.1:6186` 即可看到控制台。
+构建产物位于 `dashboard/dist`。重新启动后端后，本机访问 `http://127.0.0.1:6186`，局域网设备访问 `http://<电脑局域网IP>:6186`。
 
 ### 4. 连接 MoriMobile
 
@@ -143,9 +143,11 @@ MoriMobile 官方仓库：[an-shi/MoriMobile](https://github.com/an-shi/MoriMobi
 
 1. 登录后台，在左侧菜单进入「MoriMobile」；首页右上角的「连接 MoriMobile」也可以打开配对弹窗。
 2. 点击「生成配对码」，得到 8 位配对码和 `morimobile://` 配对链接。
-3. 在手机 MoriMobile 中输入配对码，手机会获得一次性下发的设备令牌。
+3. 在手机 MoriMobile 中输入电脑的局域网 IP（例如 `http://192.168.1.10:6186`）和配对码；手机不能使用 `127.0.0.1`。公网部署则填写 HTTPS 域名。
 4. 手机通过 `GET /api/v1/mobile/app/characters` 获取角色卡，通过 `/api/v1/mobile/app/conversations` 获取会话与消息。
 5. 发送消息调用 `POST /api/v1/mobile/app/conversations/{id}/messages`；服务端持久化用户消息和回复，手机更新本地缓存。`WSS /api/v1/mobile/ws` 用于服务端事件、推送和连接状态。
+
+> 如果手机仍然提示网络错误，请确认 Windows 防火墙已允许 TCP `6186` 入站，或临时将当前网络配置为“专用网络”。
 
 手机连接是**出站连接**，所以家庭服务器不需要知道手机 IP。公网部署、TLS、反向代理和隧道方案见 [docs/deployment.md](docs/deployment.md)，协议细节见 [docs/morimobile.md](docs/morimobile.md)。
 

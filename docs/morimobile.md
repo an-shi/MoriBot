@@ -35,6 +35,13 @@ MoriBot 是角色卡、会话、消息和生成媒体的**唯一数据源**。�
 
 后台左侧「MoriMobile」页面可以生成配对码、查看已配对设备、在线状态，并撤销设备。也可以从首页右上角的「连接 MoriMobile」打开配对弹窗。
 
+配对时手机填写的服务器地址必须是**手机实际能访问的地址**：
+
+- 同一 Wi-Fi：`http://<电脑局域网IP>:6186`，例如 `http://192.168.1.10:6186`
+- 公网：`https://mori.example.com`
+- 不能使用 `127.0.0.1` 或 `localhost`，它们指向手机自己
+- 如果从电脑本机打开后台生成配对码，服务端会自动尝试把配对链接改写成局域网 IP；也可以在 `dashboard.public_url` 中固定公网地址
+
 ```http
 POST /api/v1/mobile/pairing-code
 Authorization: Bearer <dashboard_jwt>

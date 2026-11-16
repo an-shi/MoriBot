@@ -7,12 +7,13 @@ import secrets
 import time
 import uuid
 from datetime import timedelta
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit, urlunsplit
 
 from moribot.core.config import ConfigManager
 from moribot.core.db import BaseDatabase, MobileDevice, User, utcnow
 from moribot.core.errors import MoriError, NotFoundError
 from moribot.core.i18n import DEFAULT_LOCALE, translate
+from moribot.core.network import is_loopback_host, primary_lan_ip
 from moribot.core.platform.mobile_adapter import MobilePlatformAdapter
 
 from ..schemas import MobileDeviceOut, MobilePairOut, PairingCodeOut
@@ -49,11 +50,29 @@ class MobileService:
         self.adapter = adapter
 
     def server_url(self, request_base_url: str) -> str:
-        """Return the public origin used inside a pairing URI."""
+        """Return the origin used inside a pairing URI.
+
+        A configured ``dashboard.public_url`` always wins (public deployment or
+        reverse proxy). Otherwise the request origin is used, and if the
+        dashboard is opened from localhost the link is rewritten to the
+        machine's LAN address so a phone on the same Wi-Fi can use it.
+        """
         configured = str(self.config.get("dashboard.public_url", "")).strip()
         if configured:
             return configured.rstrip("/")
-        return request_base_url.rstrip("/")
+
+        server = request_base_url.rstrip("/")
+        parsed = urlsplit(server)
+        if not is_loopback_host(parsed.hostname):
+            return server
+
+        lan_ip = primary_lan_ip()
+        if not lan_ip:
+            return server
+        netloc = f"{lan_ip}:{parsed.port}" if parsed.port else lan_ip
+        return urlunsplit(
+            (parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment)
+        ).rstrip("/")
 
     async def create_pairing_code(
         self,

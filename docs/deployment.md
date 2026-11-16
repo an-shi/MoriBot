@@ -125,6 +125,29 @@ uv run main.py \
   --forwarded-allow-ips 127.0.0.1
 ```
 
+### 3.1 局域网直连
+
+默认配置使用 `dashboard.host = "0.0.0.0"`，MoriBot 会监听所有 IPv4 网卡，同一 Wi-Fi 下的手机可以通过电脑的局域网 IP 访问：
+
+```text
+电脑浏览器：http://127.0.0.1:6186
+手机浏览器：http://192.168.1.10:6186
+MoriMobile：http://192.168.1.10:6186
+```
+
+- 手机不能填写 `127.0.0.1`，那指向手机自己。
+- 如果从 `127.0.0.1` 打开后台生成配对码，MoriBot 会自动把配对链接改写成检测到的局域网 IP；也可以在 `dashboard.public_url` 中固定公网 HTTPS 地址。
+- Windows 防火墙需要允许 TCP `6186` 入站。管理员 PowerShell 可执行：
+
+```powershell
+New-NetFirewallRule -DisplayName "MoriBot 6186" `
+  -Direction Inbound -Protocol TCP -LocalPort 6186 `
+  -Action Allow -Profile Private
+```
+
+- 如果使用反向代理或隧道，建议把 `host` 改回 `127.0.0.1`，只暴露代理的 HTTPS 端口。
+- 局域网 HTTP 只适合家庭内网；公网访问仍应使用 HTTPS/WSS。
+
 > 只有反向代理和 MoriBot 在同一台机器时，`forwarded_allow_ips=127.0.0.1` 才安全。若代理在 Docker 网桥或另一台机器，请填写代理的真实出口地址，不能使用 `*`。
 
 ## 4. 已实现的安全措施

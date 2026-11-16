@@ -30,6 +30,23 @@ def _login(client: TestClient, app) -> str:
     return response.json()["data"]["access_token"]
 
 
+def test_pairing_url_uses_lan_ip_for_localhost(tmp_path, monkeypatch):
+    app, _ = _build_app(tmp_path)
+    from moribot.dashboard.services import mobile_service as module
+
+    monkeypatch.setattr(module, "primary_lan_ip", lambda: "192.168.1.50")
+    service = app.state.mobile_service
+
+    assert service.server_url("http://127.0.0.1:6186/") == "http://192.168.1.50:6186"
+    assert service.server_url("http://localhost:6186/") == "http://192.168.1.50:6186"
+    assert (
+        service.server_url("http://192.168.1.20:6186/")
+        == "http://192.168.1.20:6186"
+    )
+    service.config.set("dashboard.public_url", "https://mori.example.com/")
+    assert service.server_url("http://127.0.0.1:6186/") == "https://mori.example.com"
+
+
 def test_pairing_and_mobile_websocket_flow(tmp_path):
     app, _ = _build_app(tmp_path)
 

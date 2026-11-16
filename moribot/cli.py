@@ -21,6 +21,7 @@ from moribot.core.db import SQLiteDatabase
 from moribot.core.errors import MoriError
 from moribot.core.i18n import normalize_locale, translate
 from moribot.core.logging import LogBroker, setup_logging
+from moribot.core.network import local_ipv4_addresses
 from moribot.core.paths import AppPaths
 
 BANNER = r"""
@@ -217,8 +218,20 @@ def main(argv: list[str] | None = None) -> None:
     logger.info(BANNER)
     logger.info("MoriBot v{}", __version__)
     scheme = "https" if ssl_certfile and ssl_keyfile else "http"
-    display_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
+    wildcard_host = host in {"0.0.0.0", "::"}
+    display_host = "127.0.0.1" if wildcard_host else host
     logger.info("Dashboard: {}://{}:{}", scheme, display_host, port)
+    if wildcard_host:
+        lan_addresses = local_ipv4_addresses()
+        for address in lan_addresses:
+            logger.info("LAN URL:   {}://{}:{}", scheme, address, port)
+        if not lan_addresses:
+            logger.warning("No non-loopback IPv4 address was detected for LAN access.")
+        logger.info(
+            "If a phone on the same Wi-Fi cannot connect, allow TCP port {} "
+            "through the operating system firewall.",
+            port,
+        )
     logger.info("API docs:  {}://127.0.0.1:{}/api/docs", scheme, port)
     if host not in {"127.0.0.1", "localhost", "::1"} and scheme != "https":
         logger.warning(
