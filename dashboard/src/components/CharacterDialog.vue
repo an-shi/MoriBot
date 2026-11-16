@@ -32,6 +32,8 @@ const persona = ref('')
 const chatProviderId = ref(0)
 const speechProviderId = ref(0)
 const imageProviderId = ref(0)
+const diaryMode = ref<'global' | 'enabled' | 'disabled'>('global')
+const diaryTime = ref('')
 const enabled = ref(true)
 const errorMessage = ref('')
 const saving = ref(false)
@@ -46,6 +48,11 @@ const dialogOpen = computed({
 
 const isEdit = computed(() => props.character !== null)
 const avatarInitial = computed(() => name.value.trim().charAt(0).toUpperCase() || '?')
+const diaryOptions = computed(() => [
+  { title: t('characters.diaryFollowGlobal'), value: 'global' },
+  { title: t('characters.diaryEnabled'), value: 'enabled' },
+  { title: t('characters.diaryDisabled'), value: 'disabled' },
+])
 
 function providerOptions(category: ProviderCategory) {
   const items = [
@@ -75,6 +82,13 @@ function resetForm(): void {
   chatProviderId.value = character?.chat_provider_id ?? 0
   speechProviderId.value = character?.speech_provider_id ?? 0
   imageProviderId.value = character?.image_provider_id ?? 0
+  diaryMode.value =
+    character?.diary_enabled === true
+      ? 'enabled'
+      : character?.diary_enabled === false
+        ? 'disabled'
+        : 'global'
+  diaryTime.value = character?.diary_time ?? ''
   enabled.value = character?.enabled ?? true
   errorMessage.value = ''
   avatarUploading.value = false
@@ -148,6 +162,9 @@ async function save(): Promise<void> {
     chat_provider_id: chatProviderId.value || null,
     speech_provider_id: speechProviderId.value || null,
     image_provider_id: imageProviderId.value || null,
+    diary_enabled:
+      diaryMode.value === 'global' ? null : diaryMode.value === 'enabled',
+    diary_time: diaryTime.value.trim() || null,
     enabled: enabled.value,
   }
   try {
@@ -331,6 +348,36 @@ async function save(): Promise<void> {
               <p v-if="!hasProviders('image')" class="field-hint">
                 {{ t('characters.noProviders') }}
               </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="model-panel">
+          <div class="model-panel-head">
+            <p class="options-title">{{ t('characters.diarySettings') }}</p>
+            <p class="model-hint">{{ t('characters.diaryTimeHint') }}</p>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label>{{ t('characters.diaryMode') }}</label>
+              <v-select
+                v-model="diaryMode"
+                :items="diaryOptions"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+              />
+            </div>
+            <div class="field">
+              <label>{{ t('characters.diaryTime') }}</label>
+              <v-text-field
+                v-model="diaryTime"
+                type="time"
+                variant="outlined"
+                density="comfortable"
+                hide-details="auto"
+              />
+              <p class="field-hint">{{ t('characters.diaryTimeHint') }}</p>
             </div>
           </div>
         </div>

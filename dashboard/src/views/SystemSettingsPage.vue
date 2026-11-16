@@ -13,6 +13,8 @@ const running = ref(false)
 const enabled = ref(false)
 const times = ref<string[]>(['09:00'])
 const lastRuns = ref<Record<string, string>>({})
+const diaryEnabled = ref(false)
+const diaryTime = ref('23:30')
 const serverTime = ref('')
 const timezone = ref('')
 const errorMessage = ref('')
@@ -49,6 +51,8 @@ async function loadSettings(): Promise<void> {
       ? [...settings.health_check.times]
       : ['09:00']
     lastRuns.value = settings.health_check.last_runs
+    diaryEnabled.value = settings.diary.enabled
+    diaryTime.value = settings.diary.time || '23:30'
     serverTime.value = settings.server_time
     timezone.value = settings.timezone
   } catch (error) {
@@ -71,12 +75,18 @@ async function saveSettings(): Promise<void> {
         enabled: enabled.value,
         times: times.value.map((time) => time.trim()).filter(Boolean),
       },
+      diary: {
+        enabled: diaryEnabled.value,
+        time: diaryTime.value.trim() || '23:30',
+      },
     })
     enabled.value = settings.health_check.enabled
     times.value = settings.health_check.times.length
       ? [...settings.health_check.times]
       : ['09:00']
     lastRuns.value = settings.health_check.last_runs
+    diaryEnabled.value = settings.diary.enabled
+    diaryTime.value = settings.diary.time || '23:30'
     serverTime.value = settings.server_time
     timezone.value = settings.timezone
     showSnackbar(t('settings.saved'), 'success')
@@ -219,6 +229,46 @@ onMounted(() => {
           >
             {{ running ? t('settings.running') : t('settings.runNow') }}
           </v-btn>
+          <v-spacer />
+          <v-btn color="primary" :loading="saving" :disabled="loading" @click="saveSettings">
+            {{ saving ? t('settings.saving') : t('settings.save') }}
+          </v-btn>
+        </div>
+      </div>
+    </section>
+
+    <section class="settings-card">
+      <div class="card-head">
+        <div class="card-title">
+          <span class="card-icon"><v-icon size="20">mdi-notebook-outline</v-icon></span>
+          <div>
+            <h2>{{ t('settings.diaryTitle') }}</h2>
+            <p>{{ t('settings.diaryDesc') }}</p>
+          </div>
+        </div>
+        <v-switch
+          v-model="diaryEnabled"
+          color="primary"
+          density="compact"
+          hide-details
+          :label="t('settings.diaryEnabled')"
+        />
+      </div>
+
+      <div class="settings-body">
+        <div class="field-block">
+          <label>{{ t('settings.diaryTime') }}</label>
+          <v-text-field
+            v-model="diaryTime"
+            type="time"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            class="time-input"
+          />
+          <p class="field-hint">{{ t('settings.diaryTimeHint') }}</p>
+        </div>
+        <div class="actions">
           <v-spacer />
           <v-btn color="primary" :loading="saving" :disabled="loading" @click="saveSettings">
             {{ saving ? t('settings.saving') : t('settings.save') }}

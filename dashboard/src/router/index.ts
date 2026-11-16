@@ -37,6 +37,12 @@ const router = createRouter({
           meta: { titleKey: 'characters.pageTitle', requiresAuth: true },
         },
         {
+          path: 'diaries',
+          name: 'diaries',
+          component: () => import('@/views/DiariesPage.vue'),
+          meta: { titleKey: 'diaries.pageTitle', requiresAuth: true },
+        },
+        {
           path: 'mobile',
           name: 'mobile',
           component: () => import('@/views/MobilePage.vue'),

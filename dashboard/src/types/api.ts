@@ -44,8 +44,14 @@ export interface HealthCheckSettings {
   last_runs: Record<string, string>
 }
 
+export interface DiarySettings {
+  enabled: boolean
+  time: string
+}
+
 export interface SystemSettings {
   health_check: HealthCheckSettings
+  diary: DiarySettings
   server_time: string
   timezone: string
 }
@@ -173,6 +179,8 @@ export interface CharacterCard {
   chat_provider_id: number | null
   speech_provider_id: number | null
   image_provider_id: number | null
+  diary_enabled: boolean | null
+  diary_time: string | null
   enabled: boolean
   created_at: string
   updated_at: string
@@ -186,6 +194,8 @@ export interface CharacterPayload {
   chat_provider_id: number | null
   speech_provider_id: number | null
   image_provider_id: number | null
+  diary_enabled: boolean | null
+  diary_time: string | null
   enabled: boolean
 }
 
@@ -193,4 +203,18 @@ export type CharacterUpdatePayload = Partial<CharacterPayload>
 
 export interface CharacterAvatarResult {
   url: string
+}
+
+export interface DiaryEntry {
+  id: number
+  character_id: number
+  character_name: string
+  character_avatar: string
+  date: string
+  content: string
+  provider_id: string
+  model: string
+  source_message_count: number
+  created_at: string
+  updated_at: string
 }

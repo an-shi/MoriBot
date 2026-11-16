@@ -47,6 +47,7 @@ export const systemApi = {
 
   async updateSettings(payload: {
     health_check: { enabled: boolean; times: string[] }
+    diary?: { enabled: boolean; time: string }
   }): Promise<SystemSettings> {
     const response = await http.patch<ApiResponse<SystemSettings>>('/system/settings', payload)
     return response.data.data
