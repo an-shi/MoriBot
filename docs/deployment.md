@@ -160,7 +160,7 @@ MoriMobile ── 出站 WSS    ──► MoriBot /api/v1/mobile/ws      事件/
 
 配对流程：
 
-1. 已登录后台的用户点击「连接 MoriMobile」，生成一次性配对码。
+1. 已登录后台的用户在「MoriMobile」页面生成一次性配对码。
 2. 手机 App 调用 `POST /api/v1/mobile/pair`（HTTPS）提交配对码和设备名。
 3. 服务端返回设备令牌，手机安全保存（Keychain / Keystore）。
 4. 手机用 `Authorization: Bearer <device_token>` 连接 `/api/v1/mobile/ws`。

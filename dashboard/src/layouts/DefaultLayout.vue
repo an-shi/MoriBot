@@ -28,7 +28,7 @@ const navItems: NavItem[] = [
     to: '/characters',
     available: true,
   },
-  { labelKey: 'nav.platforms', icon: 'mdi-cellphone-link', available: false },
+  { labelKey: 'nav.platforms', icon: 'mdi-cellphone-link', to: '/mobile', available: true },
   { labelKey: 'nav.plugins', icon: 'mdi-puzzle-outline', available: false },
   { labelKey: 'nav.logs', icon: 'mdi-text-box-outline', to: '/logs', available: true },
   { labelKey: 'nav.settings', icon: 'mdi-cog-outline', to: '/settings', available: true },

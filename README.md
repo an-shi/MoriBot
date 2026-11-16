@@ -10,6 +10,7 @@ MoriBot 的产品目标不是做多平台聊天机器人网关，**不计划接�
 - 异步事件总线 + 洋葱模型消息管道
 - 以 [MoriMobile](https://github.com/an-shi/MoriMobile) 为唯一官方手机客户端
 - 内建 MoriMobile 安全网关：设备配对、设备令牌、WebSocket 上下行、设备撤销
+- MoriMobile 管理页：配对码、设备列表、在线状态、撤销设备与连接指引
 - MoriMobile 业务接口与角色对话走 HTTPS JSON API，服务端事件与推送走加密 WSS
 - 三类模型配置：主模型 / 语音模型 / 图片模型
 - 角色卡：名称、头像、人物设定，并可为每个角色单独覆盖三类模型
@@ -140,7 +141,7 @@ pnpm build
 
 MoriMobile 官方仓库：[an-shi/MoriMobile](https://github.com/an-shi/MoriMobile)
 
-1. 登录后台，点击首页右上角「连接 MoriMobile」。
+1. 登录后台，在左侧菜单进入「MoriMobile」；首页右上角的「连接 MoriMobile」也可以打开配对弹窗。
 2. 点击「生成配对码」，得到 8 位配对码和 `morimobile://` 配对链接。
 3. 在手机 MoriMobile 中输入配对码，手机会获得一次性下发的设备令牌。
 4. 手机通过 `GET /api/v1/mobile/app/characters` 获取角色卡，通过 `/api/v1/mobile/app/conversations` 获取会话与消息。

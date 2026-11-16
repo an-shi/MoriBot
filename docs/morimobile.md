@@ -33,6 +33,8 @@ MoriBot 是角色卡、会话、消息和生成媒体的**唯一数据源**。�
 
 ### 2.1 创建配对码（需要后台登录）
 
+后台左侧「MoriMobile」页面可以生成配对码、查看已配对设备、在线状态，并撤销设备。也可以从首页右上角的「连接 MoriMobile」打开配对弹窗。
+
 ```http
 POST /api/v1/mobile/pairing-code
 Authorization: Bearer <dashboard_jwt>
