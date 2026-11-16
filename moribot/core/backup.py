@@ -44,6 +44,11 @@ MAX_IMPORT_FILES = 100_000
 
 EXCLUDED_TOP_LEVEL = {"logs", "backups", "tmp", "initial_admin.txt", ".gitkeep"}
 EXCLUDED_DIR_NAMES = {"__pycache__", ".git", ".DS_Store", "Thumbs.db"}
+EXCLUDED_RELATIVE_FILES = {
+    "memory/memory-service.lock",
+    "memory/memory-service.out.log",
+}
+EXCLUDED_RELATIVE_PREFIXES = ("memory/logs/",)
 
 
 class BackupError(MoriError):
@@ -205,6 +210,11 @@ class BackupService:
         if not parts:
             return True
         if parts[0] in EXCLUDED_TOP_LEVEL:
+            return True
+        normalized = relative.as_posix()
+        if normalized in EXCLUDED_RELATIVE_FILES:
+            return True
+        if any(normalized.startswith(prefix) for prefix in EXCLUDED_RELATIVE_PREFIXES):
             return True
         return any(part in EXCLUDED_DIR_NAMES for part in parts)
 

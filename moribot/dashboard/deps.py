@@ -19,6 +19,7 @@ from moribot.core.i18n import (
     translate,
 )
 from moribot.core.lifecycle import CoreLifecycle
+from moribot.core.memory import MemoryClient, MemoryServiceManager
 from moribot.core.security import decode_access_token
 
 from .rate_limit import LoginRateLimiter
@@ -78,6 +79,14 @@ def get_character_service(request: Request) -> CharacterService:
 
 def get_diary_service(request: Request) -> DiaryService:
     return cast(DiaryService, request.app.state.diary_service)
+
+
+def get_memory_manager(request: Request) -> MemoryServiceManager:
+    return cast(MemoryServiceManager, request.app.state.memory_manager)
+
+
+def get_memory_client(request: Request) -> MemoryClient:
+    return cast(MemoryClient, request.app.state.memory_client)
 
 
 async def get_mobile_auth_context(

@@ -18,7 +18,7 @@ def _build_app(tmp_path):
     paths.ensure()
     config = ConfigManager(paths.config_file)
     config.load()
-    return create_app(paths=paths, config=config), paths, config
+    return create_app(paths=paths, config=config, memory=False), paths, config
 
 
 def _login(client, app) -> dict[str, str]:

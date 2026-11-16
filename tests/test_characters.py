@@ -21,7 +21,7 @@ def _build_app(tmp_path):
     paths.ensure()
     config = ConfigManager(paths.config_file)
     config.load()
-    return create_app(paths=paths, config=config), paths
+    return create_app(paths=paths, config=config, memory=False), paths
 
 
 def _login(client, app) -> dict[str, str]:
@@ -217,7 +217,7 @@ def test_existing_character_table_drops_legacy_greeting_column(tmp_path):
     connection.commit()
     connection.close()
 
-    app = create_app(paths=paths, config=config)
+    app = create_app(paths=paths, config=config, memory=False)
     with TestClient(app):
         pass
 

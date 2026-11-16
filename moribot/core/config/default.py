@@ -78,4 +78,28 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "enabled": False,
         "time": "23:30",
     },
+    "memory": {
+        # Embedded MoriMemory service. When the sibling checkout exists the
+        # service is started with MoriBot and stores all data in data/memory.
+        "enabled": True,
+        "auto_start": True,
+        "auto_restart": True,
+        # Empty means MORIMEMORY_HOME, then ../MoriMemory next to MoriBot.
+        "home": "",
+        "host": "127.0.0.1",
+        "port": 6190,
+        "service_token": "",
+        "startup_timeout_seconds": 30,
+        "request_timeout_seconds": 120,
+        "recall": {
+            "enabled": True,
+            "limit": 8,
+            "token_budget": 1600,
+            "timeout_seconds": 8,
+        },
+        "ingest": {
+            "enabled": True,
+            "timeout_seconds": 15,
+        },
+    },
 }

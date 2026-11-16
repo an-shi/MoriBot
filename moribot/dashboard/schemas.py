@@ -42,6 +42,17 @@ class PublicInfo(BaseModel):
     description: str = ""
 
 
+class MemoryStatusOut(BaseModel):
+    enabled: bool = False
+    running: bool = False
+    owned: bool = False
+    base_url: str = ""
+    version: str = ""
+    database_ok: bool = False
+    fts5: bool = False
+    error: str = ""
+
+
 class SystemInfo(BaseModel):
     name: str
     version: str
@@ -53,6 +64,17 @@ class SystemInfo(BaseModel):
     plugins: int = 0
     mobile_online: int = 0
     python_version: str = ""
+    memory: MemoryStatusOut = Field(default_factory=MemoryStatusOut)
+
+
+class MemorySettingsOut(BaseModel):
+    enabled: bool = True
+    auto_start: bool = True
+
+
+class MemorySettingsUpdate(BaseModel):
+    enabled: bool
+    auto_start: bool = True
 
 
 class HealthCheckSettings(BaseModel):
@@ -74,6 +96,7 @@ class DiarySettingsUpdate(BaseModel):
 class SystemSettingsOut(BaseModel):
     health_check: HealthCheckSettings
     diary: DiarySettingsOut = Field(default_factory=DiarySettingsOut)
+    memory: MemorySettingsOut = Field(default_factory=MemorySettingsOut)
     server_time: str = ""
     timezone: str = ""
 
@@ -86,6 +109,7 @@ class HealthCheckSettingsUpdate(BaseModel):
 class SystemSettingsUpdate(BaseModel):
     health_check: HealthCheckSettingsUpdate
     diary: DiarySettingsUpdate | None = None
+    memory: MemorySettingsUpdate | None = None
 
 
 class ModelHealthRunOut(BaseModel):

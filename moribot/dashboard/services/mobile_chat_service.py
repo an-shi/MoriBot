@@ -24,6 +24,7 @@ from moribot.core.db import (
 from moribot.core.errors import MoriError, NotFoundError
 from moribot.core.i18n import DEFAULT_LOCALE, translate
 from moribot.core.lifecycle import CoreLifecycle
+from moribot.core.memory import MemoryClient
 from moribot.core.provider import (
     ChatMessage,
     GeneratedImage,
@@ -78,11 +79,18 @@ _MEDIA_EXTENSIONS = {
 class MobileChatService:
     """Resolve character cards, store conversations and generate replies."""
 
-    def __init__(self, core: CoreLifecycle, characters: CharacterService) -> None:
+    def __init__(
+        self,
+        core: CoreLifecycle,
+        characters: CharacterService,
+        memory: MemoryClient | None = None,
+    ) -> None:
         self.core = core
         self.db = core.db
         self.characters = characters
+        self.memory = memory
         self._locks: dict[str, asyncio.Lock] = {}
+        self._memory_tasks: set[asyncio.Task] = set()
 
     async def list_characters(self) -> list[MobileCharacterOut]:
         """Return enabled character cards with their available media roles."""
@@ -282,7 +290,29 @@ class MobileChatService:
                 conversation.id,
                 limit=MAX_CONTEXT_MESSAGES,
             )
-            messages = self._build_context(character, history, content, locale)
+            memory_context = ""
+            if self.memory is not None:
+                recall = await self.memory.recall(
+                    user_id=self._memory_user_id(user),
+                    character_id=str(character.id),
+                    conversation_id=conversation.id,
+                    query=content,
+                )
+                memory_context = recall.text
+                if recall.available:
+                    logger.bind(source="memory").debug(
+                        "Recall for conversation {} returned {} memories ({} tokens).",
+                        conversation.id,
+                        recall.items,
+                        recall.tokens,
+                    )
+            messages = self._build_context(
+                character,
+                history,
+                content,
+                locale,
+                memory_context=memory_context,
+            )
 
             manager = self.core.provider_manager
             chat_provider = manager.resolve(
@@ -359,10 +389,112 @@ class MobileChatService:
                 len(history),
                 len(reply.text),
             )
+            self._schedule_memory_ingest(
+                user,
+                character,
+                conversation.id,
+                user_message,
+                assistant_message,
+            )
             return MobileSendMessageOut(
                 conversation=self._conversation_out(updated, character),
                 user_message=self._message_out(user_message),
                 assistant_message=self._message_out(assistant_message),
+            )
+
+    async def shutdown(self) -> None:
+        """Wait briefly for queued memory ingests before the app closes."""
+        pending = [task for task in self._memory_tasks if not task.done()]
+        if not pending:
+            return
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*pending, return_exceptions=True),
+                timeout=5,
+            )
+        except TimeoutError:
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+
+    def _schedule_memory_ingest(
+        self,
+        user: User,
+        character: CharacterCard,
+        conversation_id: str,
+        user_message: ConversationMessage,
+        assistant_message: ConversationMessage,
+    ) -> None:
+        if self.memory is None:
+            logger.bind(source="memory").debug("Memory ingest skipped: no memory client.")
+            return
+        if not self.memory.ingest_enabled:
+            logger.bind(source="memory").debug("Memory ingest skipped: disabled.")
+            return
+        if character.id is None:
+            return
+        task = asyncio.create_task(
+            self._ingest_memory(
+                user,
+                character,
+                conversation_id,
+                user_message,
+                assistant_message,
+            ),
+            name=f"memory-ingest-{conversation_id}",
+        )
+        self._memory_tasks.add(task)
+        task.add_done_callback(self._memory_tasks.discard)
+
+    async def _ingest_memory(
+        self,
+        user: User,
+        character: CharacterCard,
+        conversation_id: str,
+        user_message: ConversationMessage,
+        assistant_message: ConversationMessage,
+    ) -> None:
+        assert self.memory is not None
+        logger.bind(source="memory").debug(
+            "Preparing memory ingest: conversation={} character={} message_ids={},{}",
+            conversation_id,
+            character.id,
+            user_message.id,
+            assistant_message.id,
+        )
+        messages = []
+        for message in (user_message, assistant_message):
+            content = (message.content or "").strip()
+            if not content or message.id is None:
+                continue
+            item: dict = {
+                "id": str(message.id),
+                "role": message.role,
+                "content": content,
+            }
+            if message.created_at is not None:
+                item["created_at"] = message.created_at.isoformat()
+            messages.append(item)
+        if not messages:
+            return
+        try:
+            queued = await self.memory.ingest(
+                user_id=self._memory_user_id(user),
+                character_id=str(character.id),
+                character_name=character.name,
+                conversation_id=conversation_id,
+                messages=messages,
+            )
+            logger.bind(source="memory").debug(
+                "Memory ingest finished: conversation={} character={} queued={}",
+                conversation_id,
+                character.id,
+                queued,
+            )
+        except Exception:
+            logger.bind(source="memory").exception(
+                "Failed to queue memory extraction for conversation {}.",
+                conversation_id,
             )
 
     def media_path(self, user: User, filename: str) -> Path | None:
@@ -477,6 +609,8 @@ class MobileChatService:
         history: list[ConversationMessage],
         content: str,
         locale: str,
+        *,
+        memory_context: str = "",
     ) -> list[ChatMessage]:
         selected: list[ChatMessage] = []
         total_chars = 0
@@ -491,19 +625,36 @@ class MobileChatService:
         return [
             ChatMessage(
                 role="system",
-                content=MobileChatService._system_prompt(character, locale),
+                content=MobileChatService._system_prompt(
+                    character,
+                    locale,
+                    memory_context=memory_context,
+                ),
             ),
             *selected,
             ChatMessage(role="user", content=content),
         ]
 
     @staticmethod
-    def _system_prompt(character: CharacterCard, locale: str) -> str:
+    def _system_prompt(
+        character: CharacterCard,
+        locale: str,
+        *,
+        memory_context: str = "",
+    ) -> str:
         parts = [translate("mobile.chat_system_prompt", locale, name=character.name)]
         if character.description.strip():
             parts.append(character.description.strip())
         if character.persona.strip():
             parts.append(character.persona.strip())
+        if memory_context.strip():
+            parts.append(
+                translate(
+                    "mobile.memory_context",
+                    locale,
+                    context=memory_context.strip(),
+                )
+            )
         return "\n\n".join(parts)
 
     @staticmethod
@@ -602,3 +753,10 @@ class MobileChatService:
                 status_code=500,
             )
         return user.id
+
+    @staticmethod
+    def _memory_user_id(user: User) -> str:
+        username = (user.username or "").strip()
+        if username:
+            return username
+        return f"user-{user.id}" if user.id is not None else "local"

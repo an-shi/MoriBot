@@ -17,7 +17,7 @@ def _build_app(tmp_path, **dashboard_overrides):
     for key, value in dashboard_overrides.items():
         config.set(f"dashboard.{key}", value)
     config.save()
-    return create_app(paths=paths, config=config)
+    return create_app(paths=paths, config=config, memory=False)
 
 
 def test_force_https_and_hsts(tmp_path):

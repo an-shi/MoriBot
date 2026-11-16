@@ -17,7 +17,7 @@ def _build_app(tmp_path):
     paths.ensure()
     config = ConfigManager(paths.config_file)
     config.load()
-    return create_app(paths=paths, config=config), paths
+    return create_app(paths=paths, config=config, memory=False), paths
 
 
 def test_config_is_created_with_a_stable_jwt_secret(tmp_path):

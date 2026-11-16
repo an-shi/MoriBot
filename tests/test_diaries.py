@@ -30,7 +30,7 @@ def _build_app(tmp_path):
     paths.ensure()
     config = ConfigManager(paths.config_file)
     config.load()
-    return create_app(paths=paths, config=config)
+    return create_app(paths=paths, config=config, memory=False)
 
 
 def _login(client: TestClient, app) -> dict[str, str]:

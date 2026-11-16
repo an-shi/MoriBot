@@ -25,9 +25,10 @@ from moribot.core.errors import MoriError
 from moribot.core.i18n import translate
 from moribot.core.lifecycle import CoreLifecycle
 from moribot.core.logging import LogBroker, setup_logging
+from moribot.core.memory import MemoryClient, MemoryServiceManager, create_memory_proxy_router
 from moribot.core.paths import AppPaths
 
-from .deps import get_locale
+from .deps import get_current_user, get_locale
 from .rate_limit import LoginRateLimiter
 from .responses import error
 from .routes import API_V1_PREFIX, api_router
@@ -83,6 +84,7 @@ def create_app(
     config: ConfigManager | None = None,
     log_broker: LogBroker | None = None,
     reset_password: bool = False,
+    memory: bool | None = None,
 ) -> FastAPI:
     """Build the ASGI application.
 
@@ -93,6 +95,9 @@ def create_app(
         reset_password: Reset the administrator password during startup. The
             CLI performs this before serving; the flag remains available for
             embedding MoriBot in another process.
+        memory: Optional override for the embedded MoriMemory service. ``None``
+            uses ``memory.enabled`` from configuration; ``False`` keeps the
+            proxy and client wired but never starts the service (tests).
 
     Returns:
         A configured FastAPI application.
@@ -109,6 +114,18 @@ def create_app(
     log_level = os.environ.get("MORIBOT_LOG_LEVEL") or resolved_config.log_level
     setup_logging(resolved_paths, log_level, broker)
 
+    memory_config = resolved_config.get("memory", {})
+    memory_config = memory_config if isinstance(memory_config, dict) else {}
+    memory_manager = MemoryServiceManager.from_host(
+        project_root=resolved_paths.project_root,
+        data_dir=resolved_paths.data_dir,
+        config=memory_config,
+    )
+    if memory is False:
+        resolved_config.set("memory.enabled", False)
+        memory_manager.settings.enabled = False
+    memory_client = MemoryClient(memory_manager, resolved_config)
+
     lifecycle = CoreLifecycle(
         resolved_paths,
         resolved_config,
@@ -122,7 +139,7 @@ def create_app(
     )
     provider_service = ProviderConfigService(lifecycle)
     character_service = CharacterService(lifecycle)
-    mobile_chat_service = MobileChatService(lifecycle, character_service)
+    mobile_chat_service = MobileChatService(lifecycle, character_service, memory_client)
     diary_service = DiaryService(lifecycle, resolved_config)
     diary_scheduler = DiaryScheduler(diary_service)
     health_scheduler = ModelHealthScheduler(resolved_config, provider_service)
@@ -134,6 +151,29 @@ def create_app(
             await lifecycle.start()
             await health_scheduler.start()
             await diary_scheduler.start()
+            if memory_client.enabled:
+                try:
+                    if await memory_client.manager.ensure_started():
+                        logger.info(
+                            "MoriMemory ready at {} (data={}).",
+                            memory_client.manager.base_url,
+                            memory_client.manager.data_dir,
+                        )
+                    else:
+                        hint = (
+                            "Check data/memory/memory-service.out.log."
+                            if memory_client.manager.settings.auto_start
+                            else "auto_start is disabled."
+                        )
+                        logger.warning(
+                            "MoriMemory is enabled but unavailable; chat will continue "
+                            "without memory. {}",
+                            hint,
+                        )
+                except Exception:
+                    logger.exception(
+                        "MoriMemory startup failed; chat will continue without memory."
+                    )
             logger.info(
                 "{} v{} dashboard API ready at {}",
                 resolved_config.bot_name,
@@ -142,8 +182,10 @@ def create_app(
             )
             yield
         finally:
+            await mobile_chat_service.shutdown()
             await diary_scheduler.stop()
             await health_scheduler.stop()
+            await memory_manager.stop()
             await lifecycle.stop()
 
     app = FastAPI(
@@ -166,6 +208,8 @@ def create_app(
     app.state.character_service = character_service
     app.state.mobile_chat_service = mobile_chat_service
     app.state.diary_service = diary_service
+    app.state.memory_manager = memory_manager
+    app.state.memory_client = memory_client
     app.state.model_health_scheduler = health_scheduler
     app.state.login_limiter = LoginRateLimiter()
     app.state.mobile_limiter = LoginRateLimiter()
@@ -324,6 +368,13 @@ def create_app(
         )
 
     app.include_router(api_router)
+    app.include_router(
+        create_memory_proxy_router(
+            manager=memory_manager,
+            get_current_user=get_current_user,
+        ),
+        prefix="/api/v1",
+    )
     app.mount(
         "/avatars",
         StaticFiles(directory=resolved_paths.avatar_dir),

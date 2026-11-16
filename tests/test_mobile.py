@@ -16,7 +16,7 @@ def _build_app(tmp_path):
     paths.ensure()
     config = ConfigManager(paths.config_file)
     config.load()
-    return create_app(paths=paths, config=config), paths
+    return create_app(paths=paths, config=config, memory=False), paths
 
 
 def _login(client: TestClient, app) -> str:

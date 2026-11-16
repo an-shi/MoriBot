@@ -32,6 +32,14 @@ async def _prepare_source(tmp_path):
     media_dir = paths.media_dir / "1"
     media_dir.mkdir(parents=True)
     (media_dir / "sample.png").write_bytes(b"fake-png")
+    memory_dir = paths.data_dir / "memory"
+    memory_dir.mkdir(parents=True)
+    (memory_dir / "morimemory.db").write_bytes(b"fake-memory-db")
+    (memory_dir / "service-token").write_text("memory-token\n", encoding="utf-8")
+    (memory_dir / "memory-service.lock").write_text("{}\n", encoding="utf-8")
+    (memory_dir / "memory-service.out.log").write_text("log\n", encoding="utf-8")
+    (memory_dir / "logs").mkdir()
+    (memory_dir / "logs" / "morimemory.log").write_text("log\n", encoding="utf-8")
     (paths.log_dir / "moribot.log").write_text("excluded log\n", encoding="utf-8")
     return paths, config, credentials
 
@@ -52,6 +60,11 @@ async def test_backup_roundtrip_restores_every_runtime_file(tmp_path):
         assert "moribot.db" in names
         assert "plugins/echo/plugin.py" in names
         assert "media/1/sample.png" in names
+        assert "memory/morimemory.db" in names
+        assert "memory/service-token" in names
+        assert "memory/memory-service.lock" not in names
+        assert "memory/memory-service.out.log" not in names
+        assert "memory/logs/morimemory.log" not in names
         assert "logs/moribot.log" not in names
         assert "initial_admin.txt" not in names
 
@@ -81,6 +94,11 @@ async def test_backup_roundtrip_restores_every_runtime_file(tmp_path):
         encoding="utf-8"
     ) == "# test plugin\n"
     assert (target.media_dir / "1" / "sample.png").read_bytes() == b"fake-png"
+    assert (target.data_dir / "memory" / "morimemory.db").read_bytes() == b"fake-memory-db"
+    assert (target.data_dir / "memory" / "service-token").read_text(encoding="utf-8").strip() == (
+        "memory-token"
+    )
+    assert not (target.data_dir / "memory" / "memory-service.lock").exists()
     assert not (target.log_dir / "moribot.log").exists()
 
 

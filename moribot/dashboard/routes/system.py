@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import platform as platform_module
 import re
@@ -25,6 +26,8 @@ from ..deps import (
     get_core,
     get_current_user,
     get_locale,
+    get_memory_client,
+    get_memory_manager,
     get_provider_service,
 )
 from ..responses import ApiResponse, ok
@@ -33,6 +36,8 @@ from ..schemas import (
     HealthCheckSettings,
     HealthInfo,
     LogEntryOut,
+    MemorySettingsOut,
+    MemoryStatusOut,
     ModelHealthRunOut,
     PublicInfo,
     SystemInfo,
@@ -80,6 +85,8 @@ def _settings_response(config) -> SystemSettingsOut:
     diary_time = str(diary_raw.get("time", "23:30")).strip()
     if not _TIME_RE.fullmatch(diary_time):
         diary_time = "23:30"
+    memory_raw = config.get("memory", {})
+    memory_raw = memory_raw if isinstance(memory_raw, dict) else {}
     return SystemSettingsOut(
         health_check=HealthCheckSettings(
             enabled=bool(raw.get("enabled", False)),
@@ -89,6 +96,10 @@ def _settings_response(config) -> SystemSettingsOut:
         diary=DiarySettingsOut(
             enabled=bool(diary_raw.get("enabled", False)),
             time=diary_time,
+        ),
+        memory=MemorySettingsOut(
+            enabled=bool(memory_raw.get("enabled", True)),
+            auto_start=bool(memory_raw.get("auto_start", True)),
         ),
         server_time=now.strftime("%Y-%m-%d %H:%M"),
         timezone=now.tzname() or "",
@@ -131,13 +142,25 @@ async def health(_config=Depends(get_config)) -> dict:
 async def system_info(
     _user: User = Depends(get_current_user),
     core=Depends(get_core),
+    memory_client=Depends(get_memory_client),
 ) -> dict:
     """Runtime summary for the dashboard home page."""
     status = core.status()
+    memory_status = await memory_client.status()
     return ok(
         SystemInfo(
             **status,
             python_version=platform_module.python_version(),
+            memory=MemoryStatusOut(
+                enabled=memory_client.enabled,
+                running=memory_status.running,
+                owned=memory_status.owned,
+                base_url=memory_status.base_url,
+                version=memory_status.version,
+                database_ok=memory_status.database_ok,
+                fts5=memory_status.fts5,
+                error=memory_status.error,
+            ),
         )
     )
 
@@ -157,8 +180,10 @@ async def update_system_settings(
     request: Request,
     _user: User = Depends(get_current_user),
     config=Depends(get_config),
+    memory_manager=Depends(get_memory_manager),
+    memory_client=Depends(get_memory_client),
 ) -> dict:
-    """Persist scheduled model health check settings."""
+    """Persist scheduled model health check and memory settings."""
     locale = get_locale(request)
     health = payload.health_check
     times = _normalize_times(health.times, enabled=health.enabled, locale=locale)
@@ -176,6 +201,18 @@ async def update_system_settings(
             raise MoriError(translate("settings.invalid_time", locale, value=diary_time))
         config.set("diary.enabled", payload.diary.enabled)
         config.set("diary.time", diary_time)
+    if payload.memory is not None:
+        config.set("memory.enabled", payload.memory.enabled)
+        config.set("memory.auto_start", payload.memory.auto_start)
+        memory_manager.settings.enabled = payload.memory.enabled
+        memory_manager.settings.auto_start = payload.memory.auto_start
+        memory_client.reset()
+        if payload.memory.enabled and payload.memory.auto_start:
+            request.app.state.memory_start_task = asyncio.create_task(
+                memory_manager.ensure_started()
+            )
+        elif not payload.memory.enabled:
+            await memory_manager.stop(kill_owned=True)
     config.save()
     return ok(_settings_response(config), message=translate("settings.saved", locale))
 
