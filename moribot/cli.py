@@ -233,6 +233,12 @@ def main(argv: list[str] | None = None) -> None:
             port,
         )
     logger.info("API docs:  {}://127.0.0.1:{}/api/docs", scheme, port)
+    if host in {"127.0.0.1", "localhost", "::1"}:
+        logger.info(
+            "MoriBot is bound to loopback only. Phones on the LAN cannot connect "
+            "directly; set dashboard.host to 0.0.0.0 for LAN pairing, or expose "
+            "the service through a reverse proxy/tunnel and set dashboard.public_url."
+        )
     if host not in {"127.0.0.1", "localhost", "::1"} and scheme != "https":
         logger.warning(
             "MoriBot is listening on {} without direct TLS. "
