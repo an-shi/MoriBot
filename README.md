@@ -15,6 +15,8 @@ MoriBot 的产品目标不是做多平台聊天机器人网关，**不计划接�
 - 三类模型配置：主模型 / 语音模型 / 图片模型
 - 角色卡：名称、头像、人物设定，并可为每个角色单独覆盖三类模型
 - 角色日记：全局/角色级开关与时间，按当天对话自动生成，可在后台和 MoriMobile 查看
+- 角色记忆：内嵌 MoriMemory，回复前召回、回复后异步写入；每个角色拥有完全独立的记忆空间
+- 记忆管理页：按角色空间查看、搜索和删除记忆
 - 兼容主流供应商：OpenAI、DeepSeek、通义千问、Kimi、智谱 GLM、豆包、SiliconFlow、OpenRouter、Groq、Mistral、xAI、Ollama 等 OpenAI 兼容端点
 - 原生适配 Anthropic Claude、Google Gemini、Azure OpenAI、ElevenLabs、MiniMax
 - 主模型通过工具调用语音与图片模型，在对话中生成语音和图片
@@ -86,6 +88,7 @@ MoriBot/
 │   ├── models.md               # 三类模型配置与工具调用
 │   ├── characters.md           # 角色卡与模型覆盖
 │   ├── diaries.md              # 角色日记与定时生成
+│   ├── memory.md               # MoriMemory 接入、角色隔离与记忆页面
 │   ├── logs.md                 # 系统日志与接口记录
 │   ├── deployment.md           # 公网部署与网络安全
 │   ├── morimobile.md           # 手机端配对、对话 API 与 WebSocket 协议
@@ -175,6 +178,10 @@ MoriMobile 官方仓库：[an-shi/MoriMobile](https://github.com/an-shi/MoriMobi
 
 左侧「角色卡」可创建角色，设置名称、头像、简介和人物设定。三类模型都可以选择「跟随系统默认」，或单独指定某个已配置的模型；未覆盖时使用该类别当前默认模型。头像只能通过上传本地图片设置，文件保存在 `data/avatars` 并生成可供 MoriMobile 使用的 URL，随数据备份迁移。详见 [docs/characters.md](docs/characters.md)。
 
+#### 角色记忆
+
+MoriBot 会自动启动同级的 [MoriMemory](https://github.com/an-shi/MoriMemory) 服务，在生成回复前按角色召回相关记忆，回复后异步提取并写入。每个角色使用独立的角色空间，另一个角色即使属于同一用户也无法读取。记忆数据保存在 `data/memory/`，随数据目录备份迁移。左侧「记忆」页面可以按角色查看、搜索和删除记忆；「系统设置」可以关闭记忆或自动启动。详见 [docs/memory.md](docs/memory.md)。
+
 ### 6. 数据迁移
 
 首页「导出数据」会下载一个包含配置、数据库、插件及未来所有运行数据的 ZIP。迁移到另一台机器：
@@ -238,6 +245,27 @@ uv run main.py
   "mobile": {
     "max_devices": 10,
     "pairing_code_ttl_minutes": 10
+  },
+  "memory": {
+    "enabled": true,
+    "auto_start": true,
+    "auto_restart": true,
+    "home": "",
+    "host": "127.0.0.1",
+    "port": 6190,
+    "service_token": "",
+    "startup_timeout_seconds": 30,
+    "request_timeout_seconds": 120,
+    "recall": {
+      "enabled": true,
+      "limit": 8,
+      "token_budget": 1600,
+      "timeout_seconds": 8
+    },
+    "ingest": {
+      "enabled": true,
+      "timeout_seconds": 15
+    }
   }
 }
 ```
@@ -245,6 +273,8 @@ uv run main.py
 `provider.media_model_fallbacks` 用于 MiniMax 这类 `/models` 不返回语音/图片模型的供应商；`provider.retired_model_prefixes` 用于隐藏接口仍返回但已下线的模型。后续模型更新时直接修改这两个配置并重启即可，不需要改代码。
 
 `provider.health_check` 控制系统设置页的模型定时检测。`times` 支持多个 `HH:MM`，使用服务器本地时间；检测结果会写回模型配置并显示在首页。
+
+`memory` 控制内嵌 MoriMemory。`home` 留空时依次查找 `MORIMEMORY_HOME` 和 MoriBot 同级的 `../MoriMemory`；服务令牌留空时自动生成到 `data/memory/service-token`。
 
 常用环境变量（可放在项目根目录的 `.env`）：
 
@@ -257,6 +287,7 @@ uv run main.py
 | `MORIBOT_LOG_LEVEL` | 日志级别 |
 | `MORIBOT_FORWARDED_ALLOW_IPS` | 信任的反向代理地址 |
 | `MORIBOT_LOCALE` | 备份命令行输出的语言（`zh-CN` / `en-US`） |
+| `MORIMEMORY_HOME` | MoriMemory 源码目录；未设置时使用 `memory.home` 或同级 `../MoriMemory` |
 
 命令行参数优先级最高：
 
@@ -310,6 +341,11 @@ uv run main.py --host 127.0.0.1 --port 8080 --data-dir ./my-data
 | GET | `/api/v1/diaries` | 是 | 列出角色日记 |
 | POST | `/api/v1/diaries/generate` | 是 | 生成或重新生成一篇日记 |
 | DELETE | `/api/v1/diaries/{id}` | 是 | 删除一篇日记 |
+| GET/POST/PATCH/DELETE | `/api/v1/memory/*` | 是 | 代理到 MoriMemory 的管理接口 |
+| GET | `/api/v1/memory/health` | 是 | 记忆引擎健康状态 |
+| GET | `/api/v1/memory/spaces` | 是 | 记忆空间列表 |
+| GET | `/api/v1/memory/memories` | 是 | 记忆列表与搜索 |
+| DELETE | `/api/v1/memory/memories/{id}` | 是 | 删除一条记忆 |
 | POST | `/api/v1/mobile/pairing-code` | 是 | 生成一次性 MoriMobile 配对码 |
 | POST | `/api/v1/mobile/pair` | 否（配对码） | 手机兑换设备令牌 |
 | GET | `/api/v1/mobile/app/me` | 设备令牌 | 校验设备并返回设备/账户信息 |
@@ -460,6 +496,7 @@ pnpm build
 - [x] MoriMobile 配对、设备令牌、WebSocket 网关、设备撤销
 - [x] MoriMobile 对话桥接：角色卡、会话、消息与媒体持久化
 - [x] 角色日记：全局/角色级开关与时间、自动生成、后台与手机查看
+- [x] 角色记忆：内嵌 MoriMemory、回复前召回、回复后写入、按角色严格隔离
 - [x] 会话与消息随数据目录导出 / 导入
 - [x] 数据导出 / 导入与完整性校验
 - [x] 中英文 i18n（默认中文）
